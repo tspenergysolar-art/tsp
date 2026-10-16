@@ -2,6 +2,8 @@ export const profileFields = ['legalName','tradeName','cnpj','beneficiaryCpf','p
 export const longFields = ['bankDetails','address','contract','notices','whatsappTemplate','emailTemplate'];
 export const emptyProfile = () => Object.fromEntries(profileFields.map(k => [k, '']));
 export const digits = s => String(s).replace(/\D/g, '');
+export const clientFields = ['name','taxId','email','phone','whatsapp','address','installationNumber','meterNumber','supplyType','contractStart','tariff','discountPercent','notes','status'];
+export const consumptionFields = ['reference','previousReadDate','currentReadDate','previousReading','currentReading','multiplier','measuredConsumption','injectedEnergy','tusdConsumption','teConsumption','solarCreditDiscount','tariffFlag','publicLighting','taxes','otherCharges','notes','dueDate'];
 export function validCpf(value) {
   const d = digits(value);
   if (!/^\d{11}$/.test(d) || /^(\d)\1+$/.test(d)) return false;
@@ -31,6 +33,52 @@ export function validateProfile(p) {
 }
 export function validImage(value) {
   return typeof value === 'string' && (value === '' || (value.length <= 90000 && /^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/=]+$/.test(value)));
+}
+export function normalizeClient(raw) {
+  const value = Object.fromEntries(clientFields.map(key => [key, String(raw[key] ?? '').trim()]));
+  value.tariff = value.tariff === '' ? 0 : Number(value.tariff);
+  value.discountPercent = value.discountPercent === '' ? 0 : Number(value.discountPercent);
+  value.status = value.status === 'inactive' ? 'inactive' : 'active';
+  return value;
+}
+export function validateClient(client) {
+  if (!client.name) throw new Error('Informe o nome completo ou a razão social.');
+  if (!client.installationNumber) throw new Error('Informe o número da instalação.');
+  for (const key of ['name','taxId','email','phone','whatsapp','installationNumber','meterNumber','supplyType','contractStart','status']) {
+    if (typeof client[key] !== 'string' || client[key].length > 200) throw new Error('Um dos campos do cliente excede o limite permitido.');
+  }
+  for (const key of ['address','notes']) if (typeof client[key] !== 'string' || client[key].length > 3000) throw new Error('Um texto do cliente excede o limite permitido.');
+  const tax = digits(client.taxId);
+  if (client.taxId && !(tax.length === 11 ? validCpf(tax) : tax.length === 14 && validCnpj(tax))) throw new Error('Confira os dígitos do CPF ou CNPJ.');
+  if (client.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(client.email)) throw new Error('Informe um e-mail válido para o cliente.');
+  for (const key of ['phone','whatsapp']) if (client[key] && !/^\d{10,13}$/.test(digits(client[key]))) throw new Error('Informe telefone e WhatsApp com DDD.');
+  if (client.contractStart && !/^\d{4}-\d{2}-\d{2}$/.test(client.contractStart)) throw new Error('Informe uma data de início válida.');
+  if (!Number.isFinite(client.tariff) || client.tariff < 0) throw new Error('A tarifa contratual não pode ser negativa.');
+  if (!Number.isFinite(client.discountPercent) || client.discountPercent < 0 || client.discountPercent > 100) throw new Error('O desconto deve ficar entre 0% e 100%.');
+  return client;
+}
+export function calculatedConsumption(previousReading, currentReading, multiplier) {
+  const previous=Number(previousReading), current=Number(currentReading), factor=Number(multiplier);
+  if (![previous,current,factor].every(Number.isFinite) || previous < 0 || current < previous || factor <= 0) return null;
+  return Number(((current-previous)*factor).toFixed(3));
+}
+export function normalizeConsumption(raw) {
+  const textKeys=['reference','previousReadDate','currentReadDate','notes','dueDate'];
+  const result={};
+  for(const key of consumptionFields) result[key]=textKeys.includes(key)?String(raw[key]??'').trim():Number(raw[key]??0);
+  return result;
+}
+export function validateConsumption(value) {
+  if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(value.reference)) throw new Error('Informe o mês e o ano de referência.');
+  for(const key of ['previousReadDate','currentReadDate','dueDate']) if(value[key]&&!/^\d{4}-\d{2}-\d{2}$/.test(value[key])) throw new Error('Confira as datas do lançamento.');
+  if(value.previousReadDate&&value.currentReadDate&&value.currentReadDate<value.previousReadDate) throw new Error('A leitura atual não pode ocorrer antes da leitura anterior.');
+  const numeric=consumptionFields.filter(key=>!['reference','previousReadDate','currentReadDate','notes','dueDate'].includes(key));
+  for(const key of numeric) if(!Number.isFinite(value[key])||value[key]<0) throw new Error('Os valores do consumo não podem ser negativos.');
+  if(value.multiplier<=0) throw new Error('O fator multiplicador deve ser maior que zero.');
+  if(value.notes.length>3000) throw new Error('As observações excedem o limite permitido.');
+  const calculated=calculatedConsumption(value.previousReading,value.currentReading,value.multiplier);
+  if(calculated===null) throw new Error('A leitura atual deve ser igual ou maior que a anterior.');
+  return {...value,calculatedConsumption:calculated,manualOverride:Math.abs(value.measuredConsumption-calculated)>0.0001};
 }
 export function readBackup(raw) {
   if (!raw || raw.schemaVersion !== 1 || !raw.profile) throw new Error('Arquivo incompatível. Use uma cópia de configurações TSP Energy.');

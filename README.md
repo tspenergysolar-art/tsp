@@ -1,6 +1,6 @@
 # TSP Energy Solar
 
-Sistema administrativo em português brasileiro. Entrega atual: **etapa 2**, estrutura, login, autorização e configurações da empresa. Não há ainda cadastro de clientes, faturamento, PDF, importação de planilhas ou pagamentos.
+Sistema administrativo em português brasileiro. Entrega atual: **etapa 3**, com login, configurações da empresa, cadastro de clientes e histórico mensal de consumo. Faturamento, PDF, importação de planilhas e pagamentos entram nas próximas etapas.
 
 ## Executar
 
@@ -30,6 +30,8 @@ O Hosting recebe apenas `dist/`. Não publicar PDFs de clientes, backups ou o di
 - `admins/{uid}`: autorização criada no console; leitura apenas da própria conta, sem escrita pelo cliente.
 - `settings/company`: configurações atuais e metadados de versão.
 - `settingsVersions/{uuid}`: cópia imutável de cada salvamento. As regras exigem criação atômica da versão e atualização da configuração, com UID e horário do servidor.
+- `clients/{uuid}` e `clientVersions/{uuid}`: cadastro atual e versões imutáveis. Clientes com histórico são inativados, não excluídos.
+- `consumptions/{cliente--AAAA-MM}` e `consumptionVersions/{uuid}`: um lançamento atual por cliente e referência, acompanhado de cada versão anterior.
 - Revisão esperada evita sobrescrever silenciosamente alterações simultâneas.
 - Imagens convertidas no navegador para PNG/WebP; cada string final é limitada a 90.000 caracteres. São armazenadas com a versão, sem Cloud Storage. Isso consome cota e deve ser monitorado.
 - Cache do Firestore somente em memória. Sessão padrão limitada à aba; “Manter conectado” usa persistência do Firebase Auth no dispositivo. Logout limpa os dados da interface. Revogar `active` bloqueia acesso no servidor e encerra a visualização na próxima atualização recebida.
@@ -37,7 +39,7 @@ O Hosting recebe apenas `dist/`. Não publicar PDFs de clientes, backups ou o di
 
 ## Testar
 
-`npm test`: validações puras.
+`npm test`: validações puras de configurações, clientes e cálculos de consumo.
 
 `npm run test:rules`: testes isolados no emulador Firestore, projeto `demo-tsp-energy`; não acessa dados reais. Java 11+ para a versão de emulador fixada nesta entrega. A CLI Firebase 13.35.1 está fixada para compatibilidade com o Java instalado e é ferramenta local, não enviada ao navegador.
 

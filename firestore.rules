@@ -34,6 +34,29 @@ service cloud.firestore {
       return !exists(/databases/$(database)/documents/settingsVersions/$(d.versionId)) &&
         getAfter(/databases/$(database)/documents/settingsVersions/$(d.versionId)).data == d;
     }
+    function auditOk(d) {
+      return d.schemaVersion == 1 && d.revision is int && d.revision > 0 &&
+        d.versionId is string && d.versionId.matches('[a-zA-Z0-9-]{20,64}') &&
+        d.updatedBy == request.auth.uid && d.updatedAt == request.time;
+    }
+    function clientOk(d, id) {
+      return d.keys().hasAll(['schemaVersion','id','name','taxId','email','phone','whatsapp','address','installationNumber','meterNumber','supplyType','contractStart','tariff','discountPercent','notes','status','taxIdDigits','phoneDigits','whatsappDigits','normalizedName','revision','versionId','createdAt','createdBy','updatedAt','updatedBy']) &&
+        d.keys().hasOnly(['schemaVersion','id','name','taxId','email','phone','whatsapp','address','installationNumber','meterNumber','supplyType','contractStart','tariff','discountPercent','notes','status','taxIdDigits','phoneDigits','whatsappDigits','normalizedName','revision','versionId','createdAt','createdBy','updatedAt','updatedBy']) &&
+        auditOk(d) && d.id == id && shortText(d,'name') && d.name.size() > 0 && shortText(d,'taxId') && shortText(d,'email') && shortText(d,'phone') && shortText(d,'whatsapp') &&
+        longText(d,'address') && shortText(d,'installationNumber') && d.installationNumber.size() > 0 && shortText(d,'meterNumber') && shortText(d,'supplyType') && shortText(d,'contractStart') &&
+        d.tariff is number && d.tariff >= 0 && d.discountPercent is number && d.discountPercent >= 0 && d.discountPercent <= 100 && longText(d,'notes') &&
+        d.status in ['active','inactive'] && shortText(d,'taxIdDigits') && shortText(d,'phoneDigits') && shortText(d,'whatsappDigits') && shortText(d,'normalizedName');
+    }
+    function consumptionOk(d, id) {
+      return d.keys().hasAll(['schemaVersion','id','clientId','clientName','installationNumber','reference','previousReadDate','currentReadDate','previousReading','currentReading','multiplier','measuredConsumption','injectedEnergy','tusdConsumption','teConsumption','solarCreditDiscount','tariffFlag','publicLighting','taxes','otherCharges','notes','dueDate','calculatedConsumption','manualOverride','revision','versionId','createdAt','createdBy','updatedAt','updatedBy']) &&
+        d.keys().hasOnly(['schemaVersion','id','clientId','clientName','installationNumber','reference','previousReadDate','currentReadDate','previousReading','currentReading','multiplier','measuredConsumption','injectedEnergy','tusdConsumption','teConsumption','solarCreditDiscount','tariffFlag','publicLighting','taxes','otherCharges','notes','dueDate','calculatedConsumption','manualOverride','revision','versionId','createdAt','createdBy','updatedAt','updatedBy']) &&
+        auditOk(d) && d.id == id && shortText(d,'clientId') && shortText(d,'clientName') && d.clientName.size() > 0 && shortText(d,'installationNumber') &&
+        d.reference.matches('^[0-9]{4}-(0[1-9]|1[0-2])$') && shortText(d,'previousReadDate') && shortText(d,'currentReadDate') && shortText(d,'dueDate') && longText(d,'notes') &&
+        d.previousReading is number && d.previousReading >= 0 && d.currentReading is number && d.currentReading >= d.previousReading && d.multiplier is number && d.multiplier > 0 &&
+        d.measuredConsumption is number && d.measuredConsumption >= 0 && d.injectedEnergy is number && d.injectedEnergy >= 0 && d.tusdConsumption is number && d.tusdConsumption >= 0 && d.teConsumption is number && d.teConsumption >= 0 &&
+        d.solarCreditDiscount is number && d.solarCreditDiscount >= 0 && d.tariffFlag is number && d.tariffFlag >= 0 && d.publicLighting is number && d.publicLighting >= 0 && d.taxes is number && d.taxes >= 0 && d.otherCharges is number && d.otherCharges >= 0 &&
+        d.calculatedConsumption is number && d.calculatedConsumption >= 0 && d.manualOverride is bool;
+    }
     match /admins/{uid} {
       // O console provisiona administradores; o navegador nunca concede privilégios.
       allow get: if request.auth != null && request.auth.uid == uid;
@@ -51,7 +74,36 @@ service cloud.firestore {
         getAfter(/databases/$(database)/documents/settings/company).data == request.resource.data;
       allow update, delete: if false;
     }
-    // Coleções de etapas futuras permanecem fechadas até sua implementação.
+    match /clients/{id} {
+      allow read: if admin();
+      allow create: if admin() && clientOk(request.resource.data,id) && request.resource.data.revision == 1 && request.resource.data.createdAt == request.time && request.resource.data.createdBy == request.auth.uid &&
+        !exists(/databases/$(database)/documents/clientVersions/$(request.resource.data.versionId)) && getAfter(/databases/$(database)/documents/clientVersions/$(request.resource.data.versionId)).data == request.resource.data;
+      allow update: if admin() && clientOk(request.resource.data,id) && request.resource.data.revision == resource.data.revision + 1 && request.resource.data.createdAt == resource.data.createdAt && request.resource.data.createdBy == resource.data.createdBy &&
+        !exists(/databases/$(database)/documents/clientVersions/$(request.resource.data.versionId)) && getAfter(/databases/$(database)/documents/clientVersions/$(request.resource.data.versionId)).data == request.resource.data;
+      allow delete: if false;
+    }
+    match /clientVersions/{versionId} {
+      allow read: if admin();
+      allow create: if admin() && clientOk(request.resource.data,request.resource.data.id) && request.resource.data.versionId == versionId &&
+        getAfter(/databases/$(database)/documents/clients/$(request.resource.data.id)).data == request.resource.data;
+      allow update, delete: if false;
+    }
+    match /consumptions/{id} {
+      allow read: if admin();
+      allow create: if admin() && consumptionOk(request.resource.data,id) && request.resource.data.revision == 1 && request.resource.data.createdAt == request.time && request.resource.data.createdBy == request.auth.uid &&
+        exists(/databases/$(database)/documents/clients/$(request.resource.data.clientId)) &&
+        !exists(/databases/$(database)/documents/consumptionVersions/$(request.resource.data.versionId)) && getAfter(/databases/$(database)/documents/consumptionVersions/$(request.resource.data.versionId)).data == request.resource.data;
+      allow update: if admin() && consumptionOk(request.resource.data,id) && request.resource.data.revision == resource.data.revision + 1 && request.resource.data.clientId == resource.data.clientId && request.resource.data.reference == resource.data.reference && request.resource.data.createdAt == resource.data.createdAt && request.resource.data.createdBy == resource.data.createdBy &&
+        !exists(/databases/$(database)/documents/consumptionVersions/$(request.resource.data.versionId)) && getAfter(/databases/$(database)/documents/consumptionVersions/$(request.resource.data.versionId)).data == request.resource.data;
+      allow delete: if false;
+    }
+    match /consumptionVersions/{versionId} {
+      allow read: if admin();
+      allow create: if admin() && consumptionOk(request.resource.data,request.resource.data.id) && request.resource.data.versionId == versionId &&
+        getAfter(/databases/$(database)/documents/consumptions/$(request.resource.data.id)).data == request.resource.data;
+      allow update, delete: if false;
+    }
+    // Demais coleções permanecem fechadas até sua implementação.
     match /{document=**} { allow read, write: if false; }
   }
 }

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {emptyProfile,validateProfile,validCpf,validCnpj,readBackup,validImage,normalizeProfile} from '../src/validation.js';
+import {emptyProfile,validateProfile,validCpf,validCnpj,readBackup,validImage,normalizeProfile,normalizeClient,validateClient,normalizeConsumption,validateConsumption,calculatedConsumption} from '../src/validation.js';
 const profile=()=>({...emptyProfile(),legalName:'Empresa de teste',tradeName:'Teste'});
 test('aceita perfil mínimo e normaliza dia',()=>{assert.equal(validateProfile(normalizeProfile({...profile(),dueDay:'31'})).dueDay,31);});
 test('aceita dia de vencimento em branco',()=>{assert.equal(validateProfile(normalizeProfile({...profile(),dueDay:''})).dueDay,'');});
@@ -10,3 +10,7 @@ test('valida contato e dependência do beneficiário PIX',()=>{assert.throws(()=
 test('importação elimina propriedades inesperadas sem aceitar SVG',()=>{const restored=readBackup({schemaVersion:1,profile:{...profile(),admin:true}});assert.equal(restored.profile.admin,undefined);assert.equal(validImage('data:image/svg+xml;base64,PHN2Zz4='),false);assert.throws(()=>readBackup({schemaVersion:1,profile:profile(),logo:'javascript:alert(1)'}));});
 test('importação rejeita QR sem chave e versões incompatíveis',()=>{assert.throws(()=>readBackup({schemaVersion:2,profile:profile()}));assert.throws(()=>readBackup({schemaVersion:1,profile:profile(),pixQr:'data:image/png;base64,AAAA'}));});
 test('limita conteúdo para caber em documentos e escapar na interface',()=>{assert.throws(()=>validateProfile({...profile(),contract:'a'.repeat(3001)}));assert.equal(validImage('data:image/png;base64,'+'A'.repeat(90000)),false);});
+test('normaliza e valida cadastro de cliente',()=>{const client=normalizeClient({name:' Cliente Teste ',installationNumber:' UC-1 ',tariff:'0.82',discountPercent:'10',status:'active'});assert.equal(validateClient(client).name,'Cliente Teste');assert.equal(client.tariff,.82);});
+test('rejeita duplicadores de identidade inválidos e condições financeiras fora do limite',()=>{assert.throws(()=>validateClient(normalizeClient({name:'Teste',installationNumber:'1',taxId:'111.111.111-11'})));assert.throws(()=>validateClient(normalizeClient({name:'Teste',installationNumber:'1',discountPercent:'101'})));});
+test('calcula consumo e identifica alteração manual',()=>{assert.equal(calculatedConsumption(100,140,1.5),60);const result=validateConsumption(normalizeConsumption({reference:'2026-10',previousReading:100,currentReading:140,multiplier:1.5,measuredConsumption:61}));assert.equal(result.calculatedConsumption,60);assert.equal(result.manualOverride,true);});
+test('rejeita referência, fator e sequência de leitura inválidos',()=>{assert.throws(()=>validateConsumption(normalizeConsumption({reference:'10/2026',previousReading:0,currentReading:1,multiplier:1})));assert.throws(()=>validateConsumption(normalizeConsumption({reference:'2026-10',previousReading:2,currentReading:1,multiplier:1})));});
