@@ -1,0 +1,12 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {emptyProfile,validateProfile,validCpf,validCnpj,readBackup,validImage,normalizeProfile} from '../src/validation.js';
+const profile=()=>({...emptyProfile(),legalName:'Empresa de teste',tradeName:'Teste'});
+test('aceita perfil mínimo e normaliza dia',()=>{assert.equal(validateProfile(normalizeProfile({...profile(),dueDay:'31'})).dueDay,31);});
+test('aceita dia de vencimento em branco',()=>{assert.equal(validateProfile(normalizeProfile({...profile(),dueDay:''})).dueDay,'');});
+test('rejeita dia fora do intervalo e campos ausentes',()=>{assert.throws(()=>validateProfile({...profile(),dueDay:32}));assert.throws(()=>validateProfile({...profile(),legalName:''}));assert.throws(()=>validateProfile({...profile(),dueDay:1.5}));});
+test('não aceita CPF/CNPJ repetidos ou dígitos inválidos',()=>{assert.equal(validCpf('111.111.111-11'),false);assert.equal(validCpf('123.456.789-00'),false);assert.equal(validCnpj('11.111.111/1111-11'),false);assert.throws(()=>validateProfile({...profile(),cnpj:'123'}));});
+test('valida contato e dependência do beneficiário PIX',()=>{assert.throws(()=>validateProfile({...profile(),pixKey:'teste@empresa.com'}));assert.throws(()=>validateProfile({...profile(),email:'invalido'}));assert.throws(()=>validateProfile({...profile(),phone:'12'}));});
+test('importação elimina propriedades inesperadas sem aceitar SVG',()=>{const restored=readBackup({schemaVersion:1,profile:{...profile(),admin:true}});assert.equal(restored.profile.admin,undefined);assert.equal(validImage('data:image/svg+xml;base64,PHN2Zz4='),false);assert.throws(()=>readBackup({schemaVersion:1,profile:profile(),logo:'javascript:alert(1)'}));});
+test('importação rejeita QR sem chave e versões incompatíveis',()=>{assert.throws(()=>readBackup({schemaVersion:2,profile:profile()}));assert.throws(()=>readBackup({schemaVersion:1,profile:profile(),pixQr:'data:image/png;base64,AAAA'}));});
+test('limita conteúdo para caber em documentos e escapar na interface',()=>{assert.throws(()=>validateProfile({...profile(),contract:'a'.repeat(3001)}));assert.equal(validImage('data:image/png;base64,'+'A'.repeat(90000)),false);});

@@ -1,0 +1,28 @@
+import {test,before,after,beforeEach} from 'node:test';
+import {readFile} from 'node:fs/promises';
+import {initializeTestEnvironment,assertFails,assertSucceeds} from '@firebase/rules-unit-testing';
+import {doc,setDoc,getDoc,deleteDoc,updateDoc,writeBatch,serverTimestamp,collection,getDocs} from 'firebase/firestore';
+import {emptyProfile} from '../src/validation.js';
+let env;
+before(async()=>{env=await initializeTestEnvironment({projectId:'demo-tsp-energy',firestore:{rules:await readFile('firestore.rules','utf8'),host:'127.0.0.1',port:8080}});});
+after(async()=>{await env?.cleanup();});
+beforeEach(async()=>{await env.clearFirestore();await env.withSecurityRulesDisabled(async ctx=>{await setDoc(doc(ctx.firestore(),'admins','admin-test'),{active:true});await setDoc(doc(ctx.firestore(),'admins','inactive-test'),{active:false});});});
+function data(revision=1,versionId='version-00000000000000001') {return {schemaVersion:1,revision,versionId,profile:{...emptyProfile(),legalName:'Empresa de teste',tradeName:'Teste'},logo:'',pixQr:'',updatedAt:serverTimestamp(),updatedBy:'admin-test'};}
+function persist(db,payload=data()) {const batch=writeBatch(db);batch.set(doc(db,'settings','company'),payload);batch.set(doc(db,'settingsVersions',payload.versionId),payload);return batch.commit();}
+const admin=()=>env.authenticatedContext('admin-test').firestore();
+test('visitante anônimo não lê ou grava dados',async()=>{const db=env.unauthenticatedContext().firestore();await assertFails(getDoc(doc(db,'settings','company')));await assertFails(persist(db));await assertFails(getDoc(doc(db,'admins','admin-test')));});
+test('login sem autorização não permite acessar empresa',async()=>{const db=env.authenticatedContext('outsider').firestore();await assertFails(getDoc(doc(db,'settings','company')));await assertFails(persist(db));});
+test('administrador inativo não lê configurações',async()=>{await assertFails(getDoc(doc(env.authenticatedContext('inactive-test').firestore(),'settings','company')));});
+test('conta pode consultar somente sua própria autorização',async()=>{const db=admin();await assertSucceeds(getDoc(doc(db,'admins','admin-test')));await assertFails(getDoc(doc(db,'admins','inactive-test')));await assertFails(getDocs(collection(db,'admins')));});
+test('ninguém promove a própria conta pelo navegador',async()=>{for(const uid of ['admin-test','outsider']){const db=env.authenticatedContext(uid).firestore();await assertFails(setDoc(doc(db,'admins',uid),{active:true}));}});
+test('admin salva e relê configuração com versão atômica',async()=>{const db=admin();await assertSucceeds(persist(db));await assertSucceeds(getDoc(doc(db,'settings','company')));await assertSucceeds(getDocs(collection(db,'settingsVersions')));});
+test('dia padrão de vencimento pode ficar em branco',async()=>{await assertSucceeds(persist(admin(),data()));});
+test('não grava configuração sem histórico',async()=>{await assertFails(setDoc(doc(admin(),'settings','company'),data()));});
+test('não cria versão órfã',async()=>{await assertFails(setDoc(doc(admin(),'settingsVersions','version-00000000000000001'),data()));});
+test('incrementa a revisão e mantém a versão anterior',async()=>{const db=admin();await persist(db);await assertSucceeds(persist(db,data(2,'version-00000000000000002')));await assertSucceeds(getDoc(doc(db,'settingsVersions','version-00000000000000001')));});
+test('bloqueia versão repetida e revisão fora da sequência',async()=>{const db=admin();await persist(db);await assertFails(persist(db,data(3,'version-00000000000000003')));await assertFails(persist(db,data(2)));});
+test('histórico não pode ser editado ou excluído',async()=>{const db=admin();await persist(db);await assertFails(updateDoc(doc(db,'settingsVersions','version-00000000000000001'),{revision:99}));await assertFails(deleteDoc(doc(db,'settingsVersions','version-00000000000000001')));await assertFails(deleteDoc(doc(db,'settings','company')));});
+test('bloqueia identidade falsa, timestamp e propriedades extras',async()=>{await assertFails(persist(admin(),{...data(),updatedBy:'outro'}));await assertFails(persist(admin(),{...data(),updatedAt:new Date(0)}));await assertFails(persist(admin(),{...data(),extra:true}));});
+test('bloqueia vencimento inválido, imagens inválidas e QR incompleto',async()=>{const p=data();await assertFails(persist(admin(),{...p,profile:{...p.profile,dueDay:40}}));await assertFails(persist(admin(),{...p,logo:'https://example.com/logo.png'}));await assertFails(persist(admin(),{...p,pixQr:'data:image/png;base64,AAAA'}));});
+test('revogação impede novas leituras e gravações',async()=>{const db=admin();await persist(db);await env.withSecurityRulesDisabled(ctx=>updateDoc(doc(ctx.firestore(),'admins','admin-test'),{active:false}));await assertFails(getDoc(doc(db,'settings','company')));await assertFails(persist(db,data(2,'version-00000000000000002')));});
+test('coleções futuras permanecem fechadas',async()=>{await assertFails(setDoc(doc(admin(),'clientes','teste'),{name:'Teste'}));});

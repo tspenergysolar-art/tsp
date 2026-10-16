@@ -1,0 +1,57 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function admin() {
+      return request.auth != null &&
+        get(/databases/$(database)/documents/admins/$(request.auth.uid)).data.active == true;
+    }
+    function shortText(p, k) { return p[k] is string && p[k].size() <= 200; }
+    function longText(p, k) { return p[k] is string && p[k].size() <= 3000; }
+    function imageOk(v) {
+      return v is string && (v == '' || (v.size() <= 90000 && v.matches('data:image/(png|jpeg|webp);base64,[A-Za-z0-9+/=]+')));
+    }
+    function profileOk(p) {
+      return p is map && p.keys().hasAll(['legalName','tradeName','cnpj','beneficiaryCpf','pixBeneficiary','pixKey','bank','bankDetails','phone','whatsapp','email','address','city','contract','notices','whatsappTemplate','emailTemplate','dueDay']) &&
+        p.keys().hasOnly(['legalName','tradeName','cnpj','beneficiaryCpf','pixBeneficiary','pixKey','bank','bankDetails','phone','whatsapp','email','address','city','contract','notices','whatsappTemplate','emailTemplate','dueDay']) &&
+        shortText(p,'legalName') && p.legalName.size() > 0 && shortText(p,'tradeName') && p.tradeName.size() > 0 &&
+        shortText(p,'cnpj') && shortText(p,'beneficiaryCpf') && shortText(p,'pixBeneficiary') && shortText(p,'pixKey') &&
+        shortText(p,'bank') && shortText(p,'phone') && shortText(p,'whatsapp') && shortText(p,'email') && shortText(p,'city') &&
+        longText(p,'bankDetails') && longText(p,'address') && longText(p,'contract') && longText(p,'notices') &&
+        longText(p,'whatsappTemplate') && longText(p,'emailTemplate') &&
+        ((p.dueDay is string && p.dueDay == '') || (p.dueDay is int && p.dueDay >= 1 && p.dueDay <= 31)) &&
+        (p.pixKey == '' || p.pixBeneficiary.size() > 0);
+    }
+    function settingsOk(d) {
+      return d.keys().hasAll(['schemaVersion','revision','versionId','profile','logo','pixQr','updatedAt','updatedBy']) &&
+        d.keys().hasOnly(['schemaVersion','revision','versionId','profile','logo','pixQr','updatedAt','updatedBy']) &&
+        d.schemaVersion == 1 && d.revision is int && d.revision > 0 &&
+        d.versionId is string && d.versionId.matches('[a-zA-Z0-9-]{20,64}') &&
+        d.updatedBy == request.auth.uid && d.updatedAt == request.time &&
+        profileOk(d.profile) && imageOk(d.logo) && imageOk(d.pixQr) &&
+        (d.pixQr == '' || (d.profile.pixKey.size() > 0 && d.profile.pixBeneficiary.size() > 0));
+    }
+    function matchingVersion(d) {
+      return !exists(/databases/$(database)/documents/settingsVersions/$(d.versionId)) &&
+        getAfter(/databases/$(database)/documents/settingsVersions/$(d.versionId)).data == d;
+    }
+    match /admins/{uid} {
+      // O console provisiona administradores; o navegador nunca concede privilégios.
+      allow get: if request.auth != null && request.auth.uid == uid;
+      allow list, write: if false;
+    }
+    match /settings/company {
+      allow read: if admin();
+      allow create: if admin() && settingsOk(request.resource.data) && request.resource.data.revision == 1 && matchingVersion(request.resource.data);
+      allow update: if admin() && settingsOk(request.resource.data) && request.resource.data.revision == resource.data.revision + 1 && matchingVersion(request.resource.data);
+      allow delete: if false;
+    }
+    match /settingsVersions/{id} {
+      allow read: if admin();
+      allow create: if admin() && settingsOk(request.resource.data) && request.resource.data.versionId == id &&
+        getAfter(/databases/$(database)/documents/settings/company).data == request.resource.data;
+      allow update, delete: if false;
+    }
+    // Coleções de etapas futuras permanecem fechadas até sua implementação.
+    match /{document=**} { allow read, write: if false; }
+  }
+}
