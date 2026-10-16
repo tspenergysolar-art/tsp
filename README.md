@@ -1,6 +1,6 @@
 # TSP Energy Solar
 
-Sistema administrativo em português brasileiro. Entrega atual: **etapa 3**, com login, configurações da empresa, cadastro de clientes e histórico mensal de consumo. Faturamento, PDF, importação de planilhas e pagamentos entram nas próximas etapas.
+Sistema administrativo em português brasileiro. Entrega atual: **etapa 4**, com login, configurações da empresa, clientes, histórico mensal e importação/exportação de planilhas. Faturamento, PDF e pagamentos entram nas próximas etapas.
 
 ## Executar
 
@@ -39,7 +39,7 @@ O Hosting recebe apenas `dist/`. Não publicar PDFs de clientes, backups ou o di
 
 ## Testar
 
-`npm test`: validações puras de configurações, clientes e cálculos de consumo.
+`npm test`: validações puras de configurações, clientes, cálculos de consumo, CSV, mapeamento e geração/leitura de XLSX.
 
 `npm run test:rules`: testes isolados no emulador Firestore, projeto `demo-tsp-energy`; não acessa dados reais. Java 11+ para a versão de emulador fixada nesta entrega. A CLI Firebase 13.35.1 está fixada para compatibilidade com o Java instalado e é ferramenta local, não enviada ao navegador.
 
@@ -49,6 +49,6 @@ Não executar os testes de regras contra produção. Os emuladores limpam soment
 
 ## Planos gratuitos
 
-Firebase Spark: Firestore 1 GiB, 50.000 leituras/dia, 20.000 gravações/dia, 20.000 exclusões/dia e 10 GiB de saída/mês, sujeitos às condições do provedor. Bibliotecas: Firebase Apache-2.0; Vite MIT. Não há Cloud Functions, Cloud Storage, SMS, APIs pagas nem integração bancária. Consultar limites atuais antes de expandir a operação.
+Firebase Spark: Firestore 1 GiB, 50.000 leituras/dia, 20.000 gravações/dia, 20.000 exclusões/dia e 10 GiB de saída/mês, sujeitos às condições do provedor. Bibliotecas: Firebase Apache-2.0; Vite, `read-excel-file` e `write-excel-file` MIT. O processamento de planilhas ocorre no navegador. Não há Cloud Functions, Cloud Storage, SMS, APIs pagas nem integração bancária. Consultar limites atuais antes de expandir a operação.
 
 Não existe promessa de uso ilimitado. Backups devem ser feitos manualmente e guardados em local privado. A evolução das etapas deve incluir rotina de restauração dos dados financeiros antes de sua utilização real.

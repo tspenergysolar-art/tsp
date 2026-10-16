@@ -1,0 +1,2 @@
+Cliente / instalação;Mês de referência;Data da leitura anterior;Data da leitura atual;Leitura anterior;Leitura atual;Fator multiplicador;Consumo medido em kWh;Energia injetada;Consumo TUSD;Consumo TE;Desconto de crédito solar;Adicional de bandeira tarifária;Contribuição de iluminação pública;Tributos e encargos;Outros lançamentos;Observações;Data de vencimento
+UC-IMP-001;10/2026;15/09/2026;15/10/2026;1000;1120;1;120;0;50,00;40,00;5,00;0;18,00;2,00;0;Teste de importação;25/10/2026

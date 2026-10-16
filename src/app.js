@@ -7,6 +7,7 @@ import { emptyProfile, profileFields, longFields, normalizeProfile, readBackup, 
 import { prepareImage } from './assets.js';
 import { icon, brand, escapeHtml as e, toast, downloadJson, formatTime } from './ui.js';
 import { mountClients, mountConsumption } from './clients.js';
+import { mountImport } from './imports.js';
 
 const root=document.querySelector('#app');
 let company=null, user=null, authorized=false, dirty=false, busy=false, currentPage='overview', stopAdmin, generation=0;
@@ -80,11 +81,11 @@ onAuthStateChanged(auth,authorize);
 function renderShell() {
   if(!authorized)return;
   root.innerHTML=`${emulatorLabel}<div class="app-layout"><aside class="sidebar" id="sidebar"><a class="brand" href="#overview">${brand(true)}</a><div class="workspace-label">PAINEL ADMINISTRATIVO</div><nav aria-label="Menu principal"><a data-nav="overview" href="#overview">${icon('grid')} Visão geral</a><a data-nav="settings" href="#settings">${icon('settings')} Configurações</a><a href="/configuracao.html" target="_blank" rel="noopener">${icon('file')} Guia de configuração</a></nav><div class="sidebar-bottom"><div class="solar-note">${icon('sun')}<span>Energia solar.<br><strong>Gestão consciente.</strong></span></div><div class="user-block"><span class="avatar">${e((user.email||'A').charAt(0).toUpperCase())}</span><div><strong>Administrador</strong><small>${e(user.email)}</small></div><button id="logout" class="icon-button" aria-label="Sair da conta" title="Sair da conta">${icon('out')}</button></div></div></aside><div class="workspace"><header class="topbar"><button class="icon-button mobile-menu" id="menu-toggle" aria-label="Abrir menu" aria-expanded="false" aria-controls="sidebar">${icon('menu')}</button><div class="breadcrumb">Área administrativa <span>/</span> <strong id="breadcrumb-page">Visão geral</strong></div><span class="secure-label">${icon('shield')} Acesso autorizado</span></header><div id="network" class="notice warning" hidden>Sem conexão. Você pode revisar o formulário, mas precisa reconectar para salvar.</div><main id="page" tabindex="-1"></main><footer class="workspace-footer">TSP ENERGY SOLAR <span>Solar & energia sustentável</span></footer></div></div>`;
-  root.querySelector('[data-nav="settings"]').insertAdjacentHTML('beforebegin',`<a data-nav="clients" href="#clients">${icon('users')} Clientes</a><a data-nav="consumption" href="#consumption">${icon('bolt')} Consumo mensal</a>`);
+  root.querySelector('[data-nav="settings"]').insertAdjacentHTML('beforebegin',`<a data-nav="clients" href="#clients">${icon('users')} Clientes</a><a data-nav="consumption" href="#consumption">${icon('bolt')} Consumo mensal</a><a data-nav="import" href="#import">${icon('upload')} Importação de dados</a>`);
   $('#logout').onclick=logout;
   $('#menu-toggle').onclick=()=>{const open=$('#sidebar').classList.toggle('open');$('#menu-toggle').setAttribute('aria-expanded',String(open));};
   root.querySelectorAll('[data-nav]').forEach(link=>link.onclick=event=>{event.preventDefault();navigate(link.dataset.nav);});
-  const requested=location.hash.slice(1);const page=['overview','clients','consumption','settings'].includes(requested)?requested:'overview';navigate(page,true);
+  const requested=location.hash.slice(1);const page=['overview','clients','consumption','import','settings'].includes(requested)?requested:'overview';navigate(page,true);
 }
 function navigate(page,force=false) {
   if(busy){toast('Aguarde o salvamento.');return;}
@@ -92,17 +93,17 @@ function navigate(page,force=false) {
   dirty=false;currentPage=page;history.replaceState(null,'',`#${page}`);
   root.querySelectorAll('[data-nav]').forEach(link=>{const active=link.dataset.nav===page;link.classList.toggle('active',active);if(active)link.setAttribute('aria-current','page');else link.removeAttribute('aria-current');});
   $('#sidebar').classList.remove('open');$('#menu-toggle').setAttribute('aria-expanded','false');
-  const labels={overview:'Visão geral',clients:'Clientes',consumption:'Consumo mensal',settings:'Configurações'};
+  const labels={overview:'Visão geral',clients:'Clientes',consumption:'Consumo mensal',import:'Importação de dados',settings:'Configurações'};
   $('#breadcrumb-page').textContent=labels[page];
-  if(page==='settings')renderSettings();else if(page==='clients')mountClients($('#page'));else if(page==='consumption')mountConsumption($('#page'));else renderOverview();
+  if(page==='settings')renderSettings();else if(page==='clients')mountClients($('#page'));else if(page==='consumption')mountConsumption($('#page'));else if(page==='import')mountImport($('#page'));else renderOverview();
   network();
 }
 function renderOverview() {
   const ready=!!company;
   $('#page').innerHTML=`<div class="page-heading"><div><span class="eyebrow">SEU ESPAÇO DE GESTÃO</span><h1>Olá, administrador<span class="green">.</span></h1><p>Vamos preparar a empresa para os próximos passos.</p></div><span class="date-chip">${new Intl.DateTimeFormat('pt-BR',{dateStyle:'long',timeZone:'America/Sao_Paulo'}).format(new Date())}</span></div><section class="welcome-card"><div class="welcome-content"><span class="pill">${icon('sun')} TSP ENERGY SOLAR</span><h2>Sua operação começa<br>com uma boa base.</h2><p>${ready?'Os dados da empresa estão salvos. Revise as informações que serão utilizadas nas suas faturas.':'Cadastre os dados da empresa, personalize os avisos e organize as informações de pagamento.'}</p><button class="button lime" id="open-settings">${ready?'Revisar configurações':'Configurar minha empresa'} ${icon('arrow')}</button></div><div class="welcome-art" aria-hidden="true"><div class="sun-disc"></div><div class="panel-grid"></div></div></section><div class="overview-grid"><article class="card"><div class="card-icon">${icon('settings')}</div><span class="eyebrow">DADOS DA EMPRESA</span><h3>${ready?e(company.profile.tradeName):'Vamos começar?'}</h3><p>${ready?e(company.profile.legalName):'Importe os dados do modelo da fatura ou preencha o cadastro da empresa.'}</p><div class="card-foot"><span class="status ${ready?'':'pending'}">${ready?'Configuração salva':'Aguardando configuração'}</span><span>${ready?'Versão '+company.revision:'Primeiro acesso'}</span></div></article><article class="card"><div class="card-icon">${icon('shield')}</div><span class="eyebrow">CONTA E ACESSO</span><h3>Seu acesso está ativo.</h3><p>Esta conta tem autorização administrativa. As configurações são acessadas por uma conexão autenticada.</p><div class="card-foot"><span class="status">Administrador</span><span>Sessão protegida</span></div></article></div><section class="next-step"><div class="step-number">02</div><div><h3>Estrutura e configurações da empresa</h3><p>Esta é a segunda etapa do projeto. Cadastro de clientes, consumo, faturamento e indicadores financeiros serão adicionados nas próximas etapas.</p></div><span class="tag">Etapa atual</span></section>`;
-  $('#page .step-number').textContent='03';
-  $('#page .next-step h3').textContent='Clientes e histórico de consumo';
-  $('#page .next-step p').textContent='Cadastre unidades consumidoras, registre leituras mensais e consulte versões anteriores sem apagar o histórico.';
+  $('#page .step-number').textContent='04';
+  $('#page .next-step h3').textContent='Importação e exportação de dados';
+  $('#page .next-step p').textContent='Use modelos XLSX ou CSV, revise as colunas e valide cada registro antes de gravar clientes e consumos.';
   $('#open-settings').onclick=()=>navigate('settings');
 }
 const fields={
