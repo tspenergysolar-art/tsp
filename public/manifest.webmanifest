@@ -1,0 +1,25 @@
+{
+  "id": "./",
+  "name": "TSP Energy Solar",
+  "short_name": "TSP Energy",
+  "description": "Sistema administrativo de faturamento e gestão financeira da TSP Energy Solar.",
+  "lang": "pt-BR",
+  "dir": "ltr",
+  "start_url": "./#overview",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#fafbf8",
+  "theme_color": "#153430",
+  "orientation": "any",
+  "categories": ["business", "finance", "productivity"],
+  "icons": [
+    {"src": "./icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any"},
+    {"src": "./icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any"},
+    {"src": "./icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable"}
+  ],
+  "shortcuts": [
+    {"name": "Visão geral", "short_name": "Painel", "url": "./#overview", "icons": [{"src": "./icon-192.png", "sizes": "192x192"}]},
+    {"name": "Faturamento mensal", "short_name": "Faturar", "url": "./#invoices", "icons": [{"src": "./icon-192.png", "sizes": "192x192"}]},
+    {"name": "Contas a receber", "short_name": "Receber", "url": "./#payments", "icons": [{"src": "./icon-192.png", "sizes": "192x192"}]}
+  ]
+}

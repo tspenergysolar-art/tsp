@@ -11,11 +11,13 @@ import { mountImport } from './imports.js';
 import { mountInvoices } from './invoices.js';
 import { mountPayments } from './payments.js';
 import { mountDashboard } from './dashboard.js';
+import { registerPwa, mountInstall } from './pwa.js';
 import packageInfo from '../package.json';
 
 const root=document.querySelector('#app');
 const baseUrl=import.meta.env.BASE_URL;
 const appVersion=packageInfo.version;
+registerPwa();
 let company=null, user=null, authorized=false, dirty=false, busy=false, currentPage='overview', stopAdmin, generation=0;
 let images={logo:''};
 const $=selector=>root.querySelector(selector);
@@ -87,11 +89,11 @@ onAuthStateChanged(auth,authorize);
 function renderShell() {
   if(!authorized)return;
   root.innerHTML=`${emulatorLabel}<div class="app-layout"><aside class="sidebar" id="sidebar"><a class="brand" href="#overview">${brand(true)}</a><div class="workspace-label">PAINEL ADMINISTRATIVO</div><nav aria-label="Menu principal"><a data-nav="overview" href="#overview">${icon('grid')} Visão geral</a><a data-nav="settings" href="#settings">${icon('settings')} Configurações</a><a href="${baseUrl}configuracao.html" target="_blank" rel="noopener">${icon('file')} Manual de uso</a></nav><div class="sidebar-bottom"><div class="solar-note">${icon('sun')}<span>Energia solar.<br><strong>Gestão consciente.</strong></span></div><div class="user-block"><span class="avatar">${e((user.email||'A').charAt(0).toUpperCase())}</span><div><strong>Administrador</strong><small>${e(user.email)}</small></div><button id="logout" class="icon-button" aria-label="Sair da conta" title="Sair da conta">${icon('out')}</button></div></div></aside><div class="workspace"><header class="topbar"><button class="icon-button mobile-menu" id="menu-toggle" aria-label="Abrir menu" aria-expanded="false" aria-controls="sidebar">${icon('menu')}</button><div class="breadcrumb">Área administrativa <span>/</span> <strong id="breadcrumb-page">Visão geral</strong></div><span class="secure-label">${icon('shield')} Acesso autorizado</span></header><div id="network" class="notice warning" hidden>Sem conexão. Você pode revisar o formulário, mas precisa reconectar para salvar.</div><main id="page" tabindex="-1"></main><footer class="workspace-footer">TSP ENERGY SOLAR <span>Versão ${appVersion}</span></footer></div></div>`;
-  root.querySelector('[data-nav="settings"]').insertAdjacentHTML('beforebegin',`<a data-nav="clients" href="#clients">${icon('users')} Clientes</a><a data-nav="consumption" href="#consumption">${icon('bolt')} Consumo mensal</a><a data-nav="import" href="#import">${icon('upload')} Importação de dados</a><a data-nav="invoices" href="#invoices">${icon('file')} Faturamento mensal</a><a data-nav="payments" href="#payments">${icon('check')} Contas a receber</a>`);
+  root.querySelector('[data-nav="settings"]').insertAdjacentHTML('beforebegin',`<a data-nav="clients" href="#clients">${icon('users')} Clientes</a><a data-nav="consumption" href="#consumption">${icon('bolt')} Consumo mensal</a><a data-nav="import" href="#import">${icon('upload')} Importação de dados</a><a data-nav="invoices" href="#invoices">${icon('file')} Faturamento mensal</a><a data-nav="payments" href="#payments">${icon('check')} Contas a receber</a><a data-nav="install" href="#install">${icon('sun')} Instalar aplicativo</a>`);
   $('#logout').onclick=logout;
   $('#menu-toggle').onclick=()=>{const open=$('#sidebar').classList.toggle('open');$('#menu-toggle').setAttribute('aria-expanded',String(open));};
   root.querySelectorAll('[data-nav]').forEach(link=>link.onclick=event=>{event.preventDefault();navigate(link.dataset.nav);});
-  const requested=location.hash.slice(1);const page=['overview','clients','consumption','import','invoices','payments','settings'].includes(requested)?requested:'overview';navigate(page,true);
+  const requested=location.hash.slice(1);const page=['overview','clients','consumption','import','invoices','payments','install','settings'].includes(requested)?requested:'overview';navigate(page,true);
 }
 function navigate(page,force=false) {
   if(busy){toast('Aguarde o salvamento.');return;}
@@ -99,9 +101,9 @@ function navigate(page,force=false) {
   dirty=false;currentPage=page;history.replaceState(null,'',`#${page}`);
   root.querySelectorAll('[data-nav]').forEach(link=>{const active=link.dataset.nav===page;link.classList.toggle('active',active);if(active)link.setAttribute('aria-current','page');else link.removeAttribute('aria-current');});
   $('#sidebar').classList.remove('open');$('#menu-toggle').setAttribute('aria-expanded','false');
-  const labels={overview:'Visão geral',clients:'Clientes',consumption:'Consumo mensal',import:'Importação de dados',invoices:'Faturamento mensal',payments:'Contas a receber',settings:'Configurações'};
+  const labels={overview:'Visão geral',clients:'Clientes',consumption:'Consumo mensal',import:'Importação de dados',invoices:'Faturamento mensal',payments:'Contas a receber',install:'Instalar aplicativo',settings:'Configurações'};
   $('#breadcrumb-page').textContent=labels[page];
-  if(page==='settings')renderSettings();else if(page==='clients')mountClients($('#page'));else if(page==='consumption')mountConsumption($('#page'));else if(page==='import')mountImport($('#page'));else if(page==='invoices')mountInvoices($('#page'),company);else if(page==='payments')mountPayments($('#page'));else mountDashboard($('#page'),company,navigate);
+  if(page==='settings')renderSettings();else if(page==='clients')mountClients($('#page'));else if(page==='consumption')mountConsumption($('#page'));else if(page==='import')mountImport($('#page'));else if(page==='invoices')mountInvoices($('#page'),company);else if(page==='payments')mountPayments($('#page'));else if(page==='install')mountInstall($('#page'));else mountDashboard($('#page'),company,navigate);
   network();
 }
 function renderOverview() {

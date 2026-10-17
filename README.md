@@ -1,6 +1,6 @@
 # TSP Energy Solar
 
-Sistema administrativo em português brasileiro. As **etapas 1 a 8** estão implementadas: login, configurações, clientes, consumo, planilhas, faturamento PDF, compartilhamento, pagamentos e dashboard.
+Sistema administrativo em português brasileiro. As **etapas 1 a 8** estão implementadas: login, configurações, clientes, consumo, planilhas, faturamento PDF, compartilhamento, pagamentos e dashboard. A partir da versão 0.10.0, o site também é um aplicativo web instalável (PWA) para Android, iPhone, iPad e computador.
 
 ## Executar
 
@@ -26,6 +26,12 @@ O sistema é publicado gratuitamente no GitHub Pages por `.github/workflows/page
 Firebase Hosting estático também é compatível, mas não é necessário para a publicação atual. O comando `npm run deploy` aponta para `tsp-energy`; use somente com uma conta Firebase autorizada e sem ativar faturamento.
 
 Somente `dist/` é publicado. Não publicar PDFs de clientes, backups ou o diretório `private/`.
+
+## Aplicativo instalável
+
+O manifesto, os ícones e o service worker ficam em `public/`. No Android, a instalação usa o aviso do Chrome ou a opção “Instalar app”. No iPhone/iPad, usa Safari → Compartilhar → Adicionar à Tela de Início → Abrir como App Web. O aplicativo utiliza a mesma URL, autenticação e base de dados do site; não precisa ser publicado em loja.
+
+O service worker armazena somente os arquivos estáticos da própria origem. Chamadas ao Firebase e dados administrativos não são colocados no cache do aplicativo. Sem conexão, a estrutura já visitada pode abrir, mas login, leitura atualizada e gravações continuam exigindo internet.
 
 ## Dados e histórico
 
