@@ -1,6 +1,10 @@
 # TSP Energy Solar
 
-Sistema administrativo em português brasileiro. As **etapas 1 a 8** estão implementadas: login, configurações, clientes, consumo, planilhas, faturamento PDF, compartilhamento, pagamentos e dashboard. A partir da versão 0.10.0, o site também é um aplicativo web instalável (PWA) para Android, iPhone, iPad e computador.
+Sistema administrativo em português brasileiro. As **etapas 1 a 8** estão implementadas: login, configurações, clientes, cadastro mensal, planilhas, faturamento PDF, compartilhamento, pagamentos e dashboard. A partir da versão 0.10.0, o site também é um aplicativo web instalável (PWA) para Android, iPhone, iPad e computador.
+
+## Leitura local de contas CPFL
+
+Em **Cadastro mensal**, o administrador pode selecionar uma conta CPFL em PDF. O sistema tenta ler primeiro o texto digital e usa OCR local quando o arquivo contém apenas imagem. Os campos aparecem para revisão, seleção e edição antes de preencher o formulário; nenhum lançamento é salvo automaticamente. O PDF fica somente na memória do navegador durante a leitura, não é enviado ao Firebase e é descartado ao terminar. Os recursos de PDF e OCR são preparados no próprio projeto durante desenvolvimento, teste e compilação.
 
 ## Executar
 

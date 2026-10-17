@@ -1,24 +1,32 @@
 {
   "name": "tsp-energy-solar",
-  "version": "0.10.4",
+  "version": "0.11.0",
   "private": true,
   "type": "module",
   "scripts": {
+    "prepare:ocr": "node scripts/prepare-ocr-assets.mjs",
+    "predev": "npm run prepare:ocr",
+    "predev:emulator": "npm run prepare:ocr",
+    "prebuild": "npm run prepare:ocr",
+    "pretest": "npm run prepare:ocr",
     "dev": "vite --host 127.0.0.1",
     "dev:emulator": "vite --host 127.0.0.1 --mode emulator --port 5174",
     "build": "vite build",
     "preview": "vite preview --host 127.0.0.1",
-    "test": "node --test tests/validation.test.js tests/spreadsheet.test.js tests/billing.test.js tests/pix.test.js tests/finance.test.js tests/pwa.test.js",
+    "test": "node --test tests/validation.test.js tests/spreadsheet.test.js tests/billing.test.js tests/pix.test.js tests/finance.test.js tests/pwa.test.js tests/cpfl-reader.test.js",
     "test:rules": "firebase emulators:exec --project demo-tsp-energy --only firestore \"node --test tests/rules.test.js\"",
     "emulators": "firebase emulators:start --project demo-tsp-energy --only auth,firestore",
     "deploy": "npm run build && firebase deploy --only hosting,firestore --project tsp-energy",
     "backup": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/backup-version.ps1"
   },
   "dependencies": {
+    "@tesseract.js-data/por": "^1.0.0",
     "firebase": "13.0.0",
     "pdf-lib": "^1.17.1",
+    "pdfjs-dist": "^6.4.299",
     "qrcode": "^1.5.4",
     "read-excel-file": "9.3.12",
+    "tesseract.js": "^7.0.0",
     "write-excel-file": "4.1.1"
   },
   "overrides": {

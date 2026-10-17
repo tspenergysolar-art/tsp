@@ -11,3 +11,4 @@ playwright-report/
 output/
 tmp/
 backups/
+public/ocr/
