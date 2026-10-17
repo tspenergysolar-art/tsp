@@ -13,11 +13,21 @@ function text(page,font,value,x,y,size=7,color=ink,options={}){page.drawText(cle
 function box(page,x,y,w,h,fill=rgb(1,1,1),stroke=border){page.drawRectangle({x,y,width:w,height:h,color:fill,borderColor:stroke,borderWidth:.6});}
 function labelValue(page,bold,regular,label,value,x,y,w){text(page,bold,label.toUpperCase(),x,y,5.3,gray);wrap(value||'-',regular,7.2,w).slice(0,2).forEach((line,i)=>text(page,regular,line,x,y-10-i*8,7.2,ink));}
 function dataUrlBytes(value){if(!value)return null;return Uint8Array.from(atob(value.split(',')[1]),c=>c.charCodeAt(0));}
+async function embedLogo(pdf,value){
+  const bytes=dataUrlBytes(value);if(!bytes)return null;
+  if(value.startsWith('data:image/png'))return pdf.embedPng(bytes);
+  if(value.startsWith('data:image/jpeg'))return pdf.embedJpg(bytes);
+  if(value.startsWith('data:image/webp')){
+    const bitmap=await createImageBitmap(new Blob([bytes],{type:'image/webp'}));
+    try{const canvas=document.createElement('canvas');canvas.width=bitmap.width;canvas.height=bitmap.height;canvas.getContext('2d').drawImage(bitmap,0,0);return pdf.embedPng(dataUrlBytes(canvas.toDataURL('image/png')));}finally{bitmap.close();}
+  }
+  return null;
+}
 
 export async function createInvoicePdf(invoice,company){
   const pdf=await PDFDocument.create(),page=pdf.addPage(A4),regular=await pdf.embedFont(StandardFonts.Helvetica),bold=await pdf.embedFont(StandardFonts.HelveticaBold),{width}=page.getSize(),p=company.profile;
   page.drawRectangle({x:0,y:752,width,height:90,color:green});page.drawRectangle({x:0,y:752,width:10,height:90,color:lime});
-  let logo=null;try{const bytes=dataUrlBytes(company.logo);if(bytes)logo=company.logo.startsWith('data:image/png')?await pdf.embedPng(bytes):await pdf.embedJpg(bytes);}catch{}
+  let logo=null;try{logo=await embedLogo(pdf,company.logo);}catch{}
   if(logo){const s=logo.scaleToFit(55,46);page.drawImage(logo,{x:27,y:778,width:s.width,height:s.height});}
   text(page,bold,p.tradeName||'TSP ENERGY SOLAR',logo?93:28,807,17,rgb(1,1,1));text(page,regular,'SOLAR & ENERGIA SUSTENTÁVEL',logo?93:28,793,7,lime);text(page,regular,'Documento de Cobrança / Demonstrativo de Consumo',logo?93:28,778,7,rgb(.78,.86,.81));
   text(page,bold,'FATURA DE ENERGIA ELÉTRICA',345,806,10,rgb(1,1,1));text(page,bold,'REPASSE SOLAR',345,790,10,lime);text(page,regular,`Fatura ${invoice.id.slice(0,8).toUpperCase()}`,345,773,7,rgb(.8,.88,.83));

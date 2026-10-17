@@ -6,12 +6,16 @@ export async function prepareImage(file, kind) {
   try {
     if (bitmap.width < 24 || bitmap.height < 24 || bitmap.width * bitmap.height > 25000000) throw new Error('A imagem tem dimensões inválidas.');
     const scale = Math.min(1,640/Math.max(bitmap.width,bitmap.height));
-    const canvas = document.createElement('canvas');
+    let canvas = document.createElement('canvas');
     canvas.width=Math.round(bitmap.width*scale); canvas.height=Math.round(bitmap.height*scale);
     const ctx=canvas.getContext('2d');
     ctx.imageSmoothingEnabled=kind!=='pixQr';
     ctx.drawImage(bitmap,0,0,canvas.width,canvas.height);
-    const result=canvas.toDataURL(kind==='pixQr'?'image/png':'image/webp',0.85);
+    let result=canvas.toDataURL('image/png');
+    while(result.length>90000&&Math.max(canvas.width,canvas.height)>120){
+      const smaller=document.createElement('canvas');smaller.width=Math.round(canvas.width*.8);smaller.height=Math.round(canvas.height*.8);
+      const smallerContext=smaller.getContext('2d');smallerContext.imageSmoothingEnabled=kind!=='pixQr';smallerContext.drawImage(canvas,0,0,smaller.width,smaller.height);canvas=smaller;result=canvas.toDataURL('image/png');
+    }
     if (result.length>90000) throw new Error('A imagem continua grande após o ajuste. Use um arquivo mais simples, com fundo limpo.');
     return result;
   } finally {bitmap.close();}

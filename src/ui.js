@@ -18,7 +18,7 @@ export const icon = name => {
   };
   return `<svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">${paths[name]||paths.sun}</svg>`;
 };
-export const brand = (small=false) => `<span class="brand-symbol">${icon('sun')}</span><span class="brand-copy">TSP ENERGY<span>${small?'SOLAR':'SOLAR & ENERGIA SUSTENTÁVEL'}</span></span>`;
+export const brand = (small=false,logo='') => `<span class="brand-symbol${logo?' custom-logo':''}">${logo?`<img src="${escapeHtml(logo)}" alt="Logotipo TSP Energy Solar">`:icon('sun')}</span><span class="brand-copy">TSP ENERGY<span>${small?'SOLAR':'SOLAR & ENERGIA SUSTENTÁVEL'}</span></span>`;
 let toastTimer;
 export function toast(message) {const el=document.querySelector('#toast');el.textContent=message;el.hidden=false;clearTimeout(toastTimer);toastTimer=setTimeout(()=>el.hidden=true,6000);}
 export function downloadJson(payload, name) {
