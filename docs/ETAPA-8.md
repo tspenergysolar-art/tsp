@@ -3,12 +3,13 @@
 ## Verificações executadas
 
 - 21 testes unitários: perfis, clientes, consumo, CSV/XLSX e cálculos de faturamento.
-- 25 testes de regras no Firestore Emulator: autorização, versões, clientes, consumos, fórmulas, faturas imutáveis, pagamentos e compartilhamentos.
+- 26 testes de regras no Firestore Emulator: autorização, versões, clientes, consumos, fórmulas, cancelamento auditado de faturas, pagamentos e compartilhamentos.
 - Build de produção com Vite.
 - `npm audit --omit=dev`: zero vulnerabilidades nas dependências enviadas ao navegador.
 - Fluxo no navegador com Auth/Firestore Emulator: login, cálculo, emissão, histórico, pagamento parcial e atualização do dashboard.
 - Layout responsivo conferido em viewport de 390 × 844.
 - PDF renderizado com Poppler: uma página, A4 595,28 × 841,89 pontos, texto extraível e inspeção visual sem cortes após correção do cabeçalho.
+- Dashboard filtrável e histórico individual com consumos, faturas, recebimentos e saldos.
 
 ## Publicação
 

@@ -103,13 +103,19 @@ export async function issueInvoice(snapshot){
   await runTransaction(db,async transaction=>{const [existing,companyVersion,client,consumption]=await Promise.all([transaction.get(ref),transaction.get(doc(db,'settingsVersions',snapshot.companyVersionId)),transaction.get(doc(db,'clients',snapshot.clientId)),transaction.get(doc(db,'consumptions',snapshot.consumptionId))]);if(existing.exists())throw new Error('Esta fatura já foi emitida.');if(!companyVersion.exists()||!client.exists()||!consumption.exists())throw new Error('Os dados de origem da fatura não estão mais disponíveis.');transaction.set(ref,{...snapshot,issuedAt:serverTimestamp(),issuedBy:uid});});
   return snapshot.id;
 }
+export async function cancelInvoice(invoiceId,reason){
+  if(!navigator.onLine)throw new Error('Sem conexão. A fatura não foi cancelada.');
+  const uid=requireUser(),ref=doc(db,'invoices',invoiceId),message=String(reason||'').trim();
+  if(!message)throw new Error('Informe o motivo do cancelamento.');
+  await runTransaction(db,async transaction=>{const snap=await transaction.get(ref);if(!snap.exists()||snap.data().status!=='issued')throw new Error('Esta fatura não está disponível para cancelamento.');transaction.update(ref,{status:'cancelled',cancelledAt:serverTimestamp(),cancelledBy:uid,cancellationReason:message});});
+}
 export async function listPayments(invoiceId=''){
   const ref=invoiceId?query(collection(db,'payments'),where('invoiceId','==',invoiceId)):collection(db,'payments');const result=await getDocsFromServer(ref);return result.docs.map(item=>item.data()).sort((a,b)=>String(b.paymentDate).localeCompare(String(a.paymentDate)));
 }
 export async function savePayment(invoiceId,{paymentDate,amount,method,notes}){
   if(!navigator.onLine)throw new Error('Sem conexão. O pagamento não foi registrado.');const uid=requireUser(),id=crypto.randomUUID(),ref=doc(db,'payments',id),invoiceRef=doc(db,'invoices',invoiceId),value=Number(amount);
   if(!/^\d{4}-\d{2}-\d{2}$/.test(paymentDate)||!Number.isFinite(value)||value<=0)throw new Error('Informe uma data e um valor recebido maior que zero.');if(!String(method).trim())throw new Error('Informe a forma de pagamento.');
-  await runTransaction(db,async transaction=>{const invoice=await transaction.get(invoiceRef);if(!invoice.exists())throw new Error('A fatura não foi encontrada.');const payload={schemaVersion:1,id,invoiceId,clientId:invoice.data().clientId,paymentDate,amount:value,method:String(method).trim(),notes:String(notes||'').trim(),status:'active',createdAt:serverTimestamp(),createdBy:uid,cancelledAt:null,cancelledBy:'',cancellationReason:''};transaction.set(ref,payload);});return id;
+  await runTransaction(db,async transaction=>{const invoice=await transaction.get(invoiceRef);if(!invoice.exists()||invoice.data().status!=='issued')throw new Error('A fatura não está ativa para receber pagamentos.');const payload={schemaVersion:1,id,invoiceId,clientId:invoice.data().clientId,paymentDate,amount:value,method:String(method).trim(),notes:String(notes||'').trim(),status:'active',createdAt:serverTimestamp(),createdBy:uid,cancelledAt:null,cancelledBy:'',cancellationReason:''};transaction.set(ref,payload);});return id;
 }
 export async function cancelPayment(paymentId,reason){
   if(!navigator.onLine)throw new Error('Sem conexão. O pagamento não foi cancelado.');const uid=requireUser(),ref=doc(db,'payments',paymentId);if(!String(reason).trim())throw new Error('Informe o motivo do cancelamento.');await runTransaction(db,async transaction=>{const snap=await transaction.get(ref);if(!snap.exists()||snap.data().status!=='active')throw new Error('Este pagamento não está ativo.');transaction.update(ref,{status:'cancelled',cancelledAt:serverTimestamp(),cancelledBy:uid,cancellationReason:String(reason).trim()});});
