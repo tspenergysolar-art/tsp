@@ -1,1 +1,179 @@
-<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Primeiro acesso | TSP Energy Solar</title><link rel="stylesheet" href="/guia.css"><link rel="icon" href="/sun.svg"></head><body><main><a href="/" class="back">← Voltar ao sistema</a><p class="eyebrow">TSP ENERGY SOLAR · PRIMEIRO ACESSO</p><h1>Uma base segura para começar.</h1><p>Configure o projeto <strong>tsp-energy</strong> no plano gratuito Spark. Este guia não altera seu projeto automaticamente.</p><section><h2>1. Criar seu acesso</h2><ol><li>No console Firebase, abra <strong>Authentication → Método de login</strong>.</li><li>Ative <strong>E-mail/senha</strong>. Não é necessário ativar login por SMS.</li><li>Em <strong>Usuários → Adicionar usuário</strong>, crie seu acesso e copie o UID. Defina a senha diretamente no console; nunca salve senhas no Firestore.</li></ol></section><section><h2>2. Criar o banco e autorizar a conta</h2><ol><li>Abra <strong>Firestore → Criar banco de dados → Standard</strong>, ID <code>(default)</code>.</li><li>Escolha a região com cuidado; ela é permanente. Para operação no Brasil, São Paulo é uma opção.</li><li>Comece em <strong>modo de produção</strong>, com acesso bloqueado.</li><li>Crie a coleção <code>admins</code> e um documento cujo ID seja exatamente o UID da conta.</li><li>Adicione o campo <code>active</code>, tipo <strong>boolean</strong>, valor <strong>true</strong>.</li><li>Publique as regras do arquivo <code>firestore.rules</code> entregue com o projeto. O login sozinho não libera acesso sem essas regras.</li></ol><p>Para revogar um administrador, altere <code>active</code> para <code>false</code> no console. A aplicação não permite conceder privilégios.</p></section><section><h2>3. Cadastrar a empresa</h2><ol><li>Entre no aplicativo e abra <strong>Configurações</strong>.</li><li>Selecione <strong>Importar configurações</strong> e escolha o arquivo privado <code>configuracoes-iniciais.json</code>, fornecido separadamente do site.</li><li>Revise os dados transcritos do modelo da fatura. Complete endereço, cidade, textos e dia de vencimento.</li><li>Se desejar, selecione logotipo e QR Code fornecido pelo banco. Confira a imagem no aplicativo bancário.</li><li>Clique em <strong>Salvar configurações</strong> e aguarde a confirmação do Firebase.</li></ol><p>O arquivo inicial contém informações de pagamento. Não o envie ao GitHub nem o coloque na pasta pública do site.</p></section><section><h2>4. Domínio, publicação e cópias</h2><p>Use Firebase Hosting estático. Em Authentication → Configurações → Domínios autorizados, confira o domínio de produção. Para teste local, adicione <code>localhost</code> e <code>127.0.0.1</code> se necessário.</p><p>O projeto inclui comandos de compilação, testes e publicação no README. A publicação requer uma conta Firebase autorizada no projeto.</p><p>Exporte suas configurações regularmente e guarde as cópias em local privado. O histórico permite baixar as dez versões mais recentes; as anteriores permanecem no banco.</p></section><section><h2>Uso gratuito e conexão</h2><p>Mantenha o Spark. O aplicativo não usa Cloud Functions, Cloud Storage, envio pago de mensagens ou integração bancária. O Firestore tem cotas; acompanhe a aba Uso no console.</p><p>Você precisa estar conectado para autenticar e salvar. Se houver falha, o aplicativo não informa sucesso sem confirmação do servidor. Alterações não salvas podem ser exportadas como rascunho.</p><p>Esta entrega corresponde à etapa 2. Clientes, consumos, faturas e pagamentos serão adicionados nas etapas seguintes.</p></section></main></body></html>
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Manual de uso do sistema de faturamento TSP Energy Solar">
+  <title>Manual de uso | TSP Energy Solar</title>
+  <link rel="stylesheet" href="./guia.css">
+  <link rel="icon" href="./sun.svg">
+</head>
+<body>
+  <header class="hero">
+    <div class="hero-inner">
+      <a href="./" class="back">← Voltar ao sistema</a>
+      <p class="eyebrow">TSP ENERGY SOLAR · MANUAL DO SISTEMA</p>
+      <h1>Como usar o sistema<br><em>do cadastro ao recebimento.</em></h1>
+      <p class="intro">Siga a ordem abaixo para cadastrar clientes, lançar o consumo, emitir faturas e controlar os pagamentos com segurança.</p>
+      <div class="quick-flow" aria-label="Fluxo principal">
+        <span>1. Configurar</span><b>→</b><span>2. Cadastrar</span><b>→</b><span>3. Lançar consumo</span><b>→</b><span>4. Faturar</span><b>→</b><span>5. Receber</span>
+      </div>
+    </div>
+  </header>
+
+  <div class="layout">
+    <aside class="contents" aria-label="Índice do manual">
+      <strong>Neste manual</strong>
+      <a href="#acesso">Acesso ao sistema</a>
+      <a href="#configuracoes">Configurações</a>
+      <a href="#clientes">Clientes</a>
+      <a href="#consumo">Consumo mensal</a>
+      <a href="#importacao">Planilhas e backup</a>
+      <a href="#faturamento">Faturamento e PDF</a>
+      <a href="#compartilhamento">WhatsApp e e-mail</a>
+      <a href="#pagamentos">Pagamentos</a>
+      <a href="#painel">Painel principal</a>
+      <a href="#cuidados">Cuidados importantes</a>
+    </aside>
+
+    <main>
+      <section class="start-card">
+        <div class="step-mark">✓</div>
+        <div>
+          <h2>Ordem recomendada para o primeiro uso</h2>
+          <p>Preencha as configurações da empresa, cadastre o cliente, lance o consumo do mês e só depois emita a fatura. Assim, o PDF será criado com os dados corretos.</p>
+        </div>
+      </section>
+
+      <section id="acesso">
+        <span class="number">01</span>
+        <h2>Acesso ao sistema</h2>
+        <ol>
+          <li>Abra o endereço oficial do sistema.</li>
+          <li>Informe o e-mail e a senha do administrador.</li>
+          <li>Marque <strong>Manter conectado neste dispositivo</strong> somente em computador ou celular de confiança.</li>
+          <li>Clique em <strong>Entrar no sistema</strong>.</li>
+        </ol>
+        <div class="note"><strong>Problemas para entrar?</strong> Apague o preenchimento automático e digite novamente. O botão “Esqueci minha senha” envia uma mensagem de recuperação para o e-mail informado.</div>
+      </section>
+
+      <section id="configuracoes">
+        <span class="number">02</span>
+        <h2>Configurações da empresa</h2>
+        <p>Abra <strong>Configurações</strong> no menu e revise os dados que aparecerão nas faturas.</p>
+        <ul>
+          <li>Preencha razão social, nome fantasia, CNPJ, telefone, e-mail e endereço.</li>
+          <li>Informe beneficiário, CPF, chave PIX e a cidade do beneficiário.</li>
+          <li>Adicione logotipo e QR Code fornecido pelo banco, se desejar.</li>
+          <li>Cadastre avisos, informações contratuais e mensagens padrão.</li>
+          <li>Clique em <strong>Salvar configurações</strong> e aguarde a mensagem de confirmação.</li>
+        </ul>
+        <div class="note"><strong>PIX com valor:</strong> quando beneficiário, chave e cidade estiverem completos, o PDF poderá gerar um QR Code PIX com o valor da própria fatura. Sempre confira os dados antes de cobrar.</div>
+      </section>
+
+      <section id="clientes">
+        <span class="number">03</span>
+        <h2>Cadastrar e consultar clientes</h2>
+        <ol>
+          <li>Abra <strong>Clientes</strong> e clique em <strong>Novo cliente</strong>.</li>
+          <li>Preencha a identificação, contato, instalação, medidor e tipo de fornecimento.</li>
+          <li>Informe a tarifa e o desconto somente conforme o contrato.</li>
+          <li>Clique em <strong>Salvar cliente</strong>.</li>
+        </ol>
+        <p>Use a pesquisa para localizar por nome, CPF/CNPJ, instalação ou telefone. Para preservar o histórico, altere a situação para <strong>Inativo</strong> quando o cliente não estiver mais em operação.</p>
+      </section>
+
+      <section id="consumo">
+        <span class="number">04</span>
+        <h2>Lançar o consumo mensal</h2>
+        <ol>
+          <li>Abra <strong>Consumo mensal</strong> e selecione o cliente.</li>
+          <li>Escolha o mês de referência e informe as datas e leituras.</li>
+          <li>Confira o fator multiplicador e o consumo calculado.</li>
+          <li>Preencha energia injetada, TUSD, TE, descontos, bandeira, iluminação, tributos e outros valores conforme os documentos reais.</li>
+          <li>Informe o vencimento e clique em <strong>Salvar lançamento</strong>.</li>
+        </ol>
+        <p>Para corrigir um mês, clique em <strong>Corrigir</strong>. O sistema cria uma nova versão e conserva o registro anterior no histórico.</p>
+      </section>
+
+      <section id="importacao">
+        <span class="number">05</span>
+        <h2>Importar planilhas e fazer backup</h2>
+        <p>Na tela <strong>Importação de dados</strong>, escolha clientes ou consumos e selecione um arquivo XLSX ou CSV.</p>
+        <ol>
+          <li>Baixe o modelo correspondente e substitua a linha de exemplo.</li>
+          <li>Selecione a planilha e associe as colunas aos campos do sistema.</li>
+          <li>Revise a prévia, os erros e os alertas de duplicidade.</li>
+          <li>Confirme a importação somente depois da conferência.</li>
+        </ol>
+        <p>Na mesma tela, exporte clientes, consumos, faturas e pagamentos em XLSX ou CSV. Guarde essas cópias em local protegido.</p>
+      </section>
+
+      <section id="faturamento">
+        <span class="number">06</span>
+        <h2>Calcular, conferir e emitir faturas</h2>
+        <ol>
+          <li>Abra <strong>Faturamento mensal</strong>.</li>
+          <li>Em <strong>Configurar fórmulas e tarifas</strong>, informe somente valores confirmados pela empresa.</li>
+          <li>Selecione o mês e clique em <strong>Atualizar lista</strong>.</li>
+          <li>Abra a prévia do cliente e confira consumo, itens, descontos e total.</li>
+          <li>Use <strong>Visualizar PDF</strong> para revisar antes de registrar.</li>
+          <li>Clique em <strong>Emitir fatura</strong> para preservar os valores e baixar o PDF.</li>
+        </ol>
+        <p>Em <strong>Faturas emitidas</strong>, abra os detalhes para baixar uma segunda via. Uma correção gera uma nova versão sem alterar silenciosamente a anterior.</p>
+        <div class="warning"><strong>Atenção:</strong> o PDF é uma fatura ou demonstrativo. Linha digitável e código de barras devem ser fornecidos por uma instituição financeira; o sistema não inventa boletos.</div>
+      </section>
+
+      <section id="compartilhamento">
+        <span class="number">07</span>
+        <h2>Compartilhar por WhatsApp ou e-mail</h2>
+        <ul>
+          <li><strong>WhatsApp:</strong> abre a conversa com a mensagem preenchida. Anexe o PDF baixado quando necessário.</li>
+          <li><strong>E-mail:</strong> abre o aplicativo de e-mail com destinatário, assunto e mensagem.</li>
+          <li><strong>Copiar mensagem:</strong> copia o texto para colar em outro aplicativo.</li>
+          <li><strong>Baixar PDF:</strong> salva a fatura no dispositivo.</li>
+        </ul>
+        <p>Confirme no sistema que o compartilhamento foi realizado somente depois de concluir o envio no aplicativo escolhido.</p>
+      </section>
+
+      <section id="pagamentos">
+        <span class="number">08</span>
+        <h2>Registrar pagamentos</h2>
+        <ol>
+          <li>Abra <strong>Contas a receber</strong> e localize a fatura.</li>
+          <li>Clique em <strong>Registrar</strong>.</li>
+          <li>Informe data, valor recebido, forma de pagamento e observações.</li>
+          <li>Clique em <strong>Registrar pagamento</strong>.</li>
+        </ol>
+        <p>O sistema aceita pagamentos parciais e mostra o saldo restante. Use <strong>Cancelar registro</strong> quando um lançamento estiver incorreto; a correção permanece no histórico.</p>
+        <div class="note"><strong>Confirmação manual:</strong> gerar ou compartilhar uma fatura não marca o pagamento. Registre apenas valores realmente recebidos.</div>
+      </section>
+
+      <section id="painel">
+        <span class="number">09</span>
+        <h2>Acompanhar o painel principal</h2>
+        <p>A <strong>Visão geral</strong> apresenta clientes ativos, consumo, faturamento, recebimentos, pendências, valores vencidos e próximos vencimentos. Use os filtros de mês, ano e cliente para analisar um período específico.</p>
+      </section>
+
+      <section id="cuidados">
+        <span class="number">10</span>
+        <h2>Cuidados importantes</h2>
+        <ul class="checks">
+          <li>Confira cliente, referência, vencimento e total antes de emitir.</li>
+          <li>Não cadastre tarifas, impostos ou dados bancários sem confirmação.</li>
+          <li>Não compartilhe sua senha administrativa.</li>
+          <li>Exporte cópias dos dados periodicamente.</li>
+          <li>Se a internet cair, aguarde a reconexão antes de salvar novamente.</li>
+          <li>Use sempre o endereço oficial publicado no GitHub Pages.</li>
+        </ul>
+      </section>
+
+      <footer>
+        <strong>TSP ENERGY SOLAR</strong>
+        <span>Manual de uso do sistema de faturamento</span>
+        <a href="./">Voltar ao sistema</a>
+      </footer>
+    </main>
+  </div>
+</body>
+</html>
