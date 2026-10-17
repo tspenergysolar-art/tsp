@@ -1,6 +1,6 @@
 # TSP Energy Solar
 
-Sistema administrativo em português brasileiro. Entrega atual: **etapa 4**, com login, configurações da empresa, clientes, histórico mensal e importação/exportação de planilhas. Faturamento, PDF e pagamentos entram nas próximas etapas.
+Sistema administrativo em português brasileiro. As **etapas 1 a 8** estão implementadas: login, configurações, clientes, consumo, planilhas, faturamento PDF, compartilhamento, pagamentos e dashboard.
 
 ## Executar
 
@@ -21,9 +21,11 @@ O diretório `private/` é ignorado pelo Git e está fora de `public/` e do buil
 
 ## Publicar
 
-Use Firebase Hosting **estático**, não Firebase App Hosting. Execute `npx firebase login:add` se a conta atual não tiver acesso e `npx firebase login:use EMAIL_AUTORIZADO`. Depois `npm run deploy`. O comando sempre aponta para `tsp-energy`. Não alterar regras de outros projetos nem ativar faturamento.
+O sistema é publicado gratuitamente no GitHub Pages por `.github/workflows/pages.yml`. A URL é `https://tspenergysolar-art.github.io/tsp/`. O domínio deve constar em Authentication → Configurações → Domínios autorizados.
 
-O Hosting recebe apenas `dist/`. Não publicar PDFs de clientes, backups ou o diretório `private/`. O repositório GitHub guarda o código. Esta entrega não configura um segundo deploy no GitHub Pages.
+Firebase Hosting estático também é compatível, mas não é necessário para a publicação atual. O comando `npm run deploy` aponta para `tsp-energy`; use somente com uma conta Firebase autorizada e sem ativar faturamento.
+
+Somente `dist/` é publicado. Não publicar PDFs de clientes, backups ou o diretório `private/`.
 
 ## Dados e histórico
 
@@ -32,6 +34,10 @@ O Hosting recebe apenas `dist/`. Não publicar PDFs de clientes, backups ou o di
 - `settingsVersions/{uuid}`: cópia imutável de cada salvamento. As regras exigem criação atômica da versão e atualização da configuração, com UID e horário do servidor.
 - `clients/{uuid}` e `clientVersions/{uuid}`: cadastro atual e versões imutáveis. Clientes com histórico são inativados, não excluídos.
 - `consumptions/{cliente--AAAA-MM}` e `consumptionVersions/{uuid}`: um lançamento atual por cliente e referência, acompanhado de cada versão anterior.
+- `billingSettings/current` e `billingSettingsVersions/{uuid}`: tarifas e alíquotas atuais com histórico imutável.
+- `invoices/{uuid}`: snapshot imutável de cada emissão. A segunda via usa os dados originais.
+- `payments/{uuid}`: pagamento manual; cancelamento mantém histórico e auditoria.
+- `shares/{uuid}`: confirmação manual de compartilhamento concluído.
 - Revisão esperada evita sobrescrever silenciosamente alterações simultâneas.
 - Imagens convertidas no navegador para PNG/WebP; cada string final é limitada a 90.000 caracteres. São armazenadas com a versão, sem Cloud Storage. Isso consome cota e deve ser monitorado.
 - Cache do Firestore somente em memória. Sessão padrão limitada à aba; “Manter conectado” usa persistência do Firebase Auth no dispositivo. Logout limpa os dados da interface. Revogar `active` bloqueia acesso no servidor e encerra a visualização na próxima atualização recebida.
@@ -39,16 +45,16 @@ O Hosting recebe apenas `dist/`. Não publicar PDFs de clientes, backups ou o di
 
 ## Testar
 
-`npm test`: validações puras de configurações, clientes, cálculos de consumo, CSV, mapeamento e geração/leitura de XLSX.
+`npm test`: validações puras de configurações, clientes, consumo, faturamento, CSV, mapeamento e XLSX.
 
 `npm run test:rules`: testes isolados no emulador Firestore, projeto `demo-tsp-energy`; não acessa dados reais. Java 11+ para a versão de emulador fixada nesta entrega. A CLI Firebase 13.35.1 está fixada para compatibilidade com o Java instalado e é ferramenta local, não enviada ao navegador.
 
 Para conferir a interface com emuladores, execute `npm run emulators`, `node scripts/seed-emulator.mjs` e `npm run dev:emulator`. Só o modo de desenvolvimento e `.env.emulator` habilitam emuladores. O build normal sempre aponta para produção. Contas e dados de teste são fictícios.
 
-Não executar os testes de regras contra produção. Os emuladores limpam somente o projeto de demonstração. Ver `docs/ETAPA-2.md` para resultados realmente executados e limitações.
+Não executar os testes de regras contra produção. Os emuladores limpam somente o projeto de demonstração. Os resultados finais estão em `docs/ETAPA-8.md`.
 
 ## Planos gratuitos
 
-Firebase Spark: Firestore 1 GiB, 50.000 leituras/dia, 20.000 gravações/dia, 20.000 exclusões/dia e 10 GiB de saída/mês, sujeitos às condições do provedor. Bibliotecas: Firebase Apache-2.0; Vite, `read-excel-file` e `write-excel-file` MIT. O processamento de planilhas ocorre no navegador. Não há Cloud Functions, Cloud Storage, SMS, APIs pagas nem integração bancária. Consultar limites atuais antes de expandir a operação.
+Firebase Spark: cotas gratuitas sujeitas às condições atuais do provedor. Bibliotecas: Firebase Apache-2.0; Vite, `pdf-lib`, `read-excel-file` e `write-excel-file` MIT. Planilhas e PDFs são processados no navegador. Não há Cloud Functions, Cloud Storage, SMS, APIs pagas nem integração bancária. Consultar limites atuais antes de expandir a operação.
 
 Não existe promessa de uso ilimitado. Backups devem ser feitos manualmente e guardados em local privado. A evolução das etapas deve incluir rotina de restauração dos dados financeiros antes de sua utilização real.

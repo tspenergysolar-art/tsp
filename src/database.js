@@ -2,6 +2,7 @@ import { doc, getDocFromServer, runTransaction, serverTimestamp, collection, que
 import { auth, db } from './firebase.js';
 import { validateProfile, validImage } from './validation.js';
 import { validateClient, validateConsumption, digits } from './validation.js';
+import {validateBillingSettings} from './billing.js';
 
 const companyRef = doc(db, 'settings', 'company');
 export async function loadCompany() {
@@ -29,6 +30,16 @@ export async function saveCompany(values, expectedRevision) {
 export async function loadHistory() {
   const result = await getDocsFromServer(query(collection(db,'settingsVersions'),orderBy('revision','desc'),limit(10)));
   return result.docs.map(snapshot => snapshot.data());
+}
+export async function getCompanyVersion(versionId){const snap=await getDocFromServer(doc(db,'settingsVersions',versionId));return snap.exists()?snap.data():null;}
+
+const billingRef=doc(db,'billingSettings','current');
+export async function loadBillingSettings(){const snap=await getDocFromServer(billingRef);return snap.exists()?snap.data():null;}
+export async function saveBillingSettings(settings,expectedRevision=0){
+  if(!navigator.onLine)throw new Error('Sem conexão. Nenhuma configuração foi salva.');
+  validateBillingSettings(settings);const uid=requireUser(),versionId=crypto.randomUUID(),versionRef=doc(db,'billingSettingsVersions',versionId);
+  await runTransaction(db,async transaction=>{const existing=await transaction.get(billingRef),revision=existing.exists()?existing.data().revision:0;if(revision!==expectedRevision)throw new Error('As tarifas foram alteradas em outra sessão. Recarregue antes de salvar.');const payload={schemaVersion:1,...settings,revision:revision+1,versionId,updatedAt:serverTimestamp(),updatedBy:uid};transaction.set(billingRef,payload);transaction.set(versionRef,payload);});
+  return {revision:expectedRevision+1,versionId};
 }
 
 function requireUser(){const uid=auth.currentUser?.uid;if(!uid)throw new Error('Entre novamente para continuar.');return uid;}
@@ -80,4 +91,29 @@ export async function saveConsumption(client, raw, expectedRevision=0){
     transaction.set(currentRef,payload);transaction.set(versionRef,payload);
   });
   return id;
+}
+export async function listInvoices(reference='',clientId=''){
+  let ref=collection(db,'invoices');
+  if(reference)ref=query(ref,where('reference','==',reference));else if(clientId)ref=query(ref,where('clientId','==',clientId));
+  const result=await getDocsFromServer(ref);return result.docs.map(item=>item.data()).filter(item=>!clientId||item.clientId===clientId).sort((a,b)=>(b.issuedAt?.seconds||0)-(a.issuedAt?.seconds||0));
+}
+export async function issueInvoice(snapshot){
+  if(!navigator.onLine)throw new Error('Sem conexão. A fatura não foi emitida.');
+  const uid=requireUser(),ref=doc(db,'invoices',snapshot.id);
+  await runTransaction(db,async transaction=>{const [existing,companyVersion,client,consumption]=await Promise.all([transaction.get(ref),transaction.get(doc(db,'settingsVersions',snapshot.companyVersionId)),transaction.get(doc(db,'clients',snapshot.clientId)),transaction.get(doc(db,'consumptions',snapshot.consumptionId))]);if(existing.exists())throw new Error('Esta fatura já foi emitida.');if(!companyVersion.exists()||!client.exists()||!consumption.exists())throw new Error('Os dados de origem da fatura não estão mais disponíveis.');transaction.set(ref,{...snapshot,issuedAt:serverTimestamp(),issuedBy:uid});});
+  return snapshot.id;
+}
+export async function listPayments(invoiceId=''){
+  const ref=invoiceId?query(collection(db,'payments'),where('invoiceId','==',invoiceId)):collection(db,'payments');const result=await getDocsFromServer(ref);return result.docs.map(item=>item.data()).sort((a,b)=>String(b.paymentDate).localeCompare(String(a.paymentDate)));
+}
+export async function savePayment(invoiceId,{paymentDate,amount,method,notes}){
+  if(!navigator.onLine)throw new Error('Sem conexão. O pagamento não foi registrado.');const uid=requireUser(),id=crypto.randomUUID(),ref=doc(db,'payments',id),invoiceRef=doc(db,'invoices',invoiceId),value=Number(amount);
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(paymentDate)||!Number.isFinite(value)||value<=0)throw new Error('Informe uma data e um valor recebido maior que zero.');if(!String(method).trim())throw new Error('Informe a forma de pagamento.');
+  await runTransaction(db,async transaction=>{const invoice=await transaction.get(invoiceRef);if(!invoice.exists())throw new Error('A fatura não foi encontrada.');const payload={schemaVersion:1,id,invoiceId,clientId:invoice.data().clientId,paymentDate,amount:value,method:String(method).trim(),notes:String(notes||'').trim(),status:'active',createdAt:serverTimestamp(),createdBy:uid,cancelledAt:null,cancelledBy:'',cancellationReason:''};transaction.set(ref,payload);});return id;
+}
+export async function cancelPayment(paymentId,reason){
+  if(!navigator.onLine)throw new Error('Sem conexão. O pagamento não foi cancelado.');const uid=requireUser(),ref=doc(db,'payments',paymentId);if(!String(reason).trim())throw new Error('Informe o motivo do cancelamento.');await runTransaction(db,async transaction=>{const snap=await transaction.get(ref);if(!snap.exists()||snap.data().status!=='active')throw new Error('Este pagamento não está ativo.');transaction.update(ref,{status:'cancelled',cancelledAt:serverTimestamp(),cancelledBy:uid,cancellationReason:String(reason).trim()});});
+}
+export async function recordShare(invoiceId,channel){
+  if(!navigator.onLine)throw new Error('Sem conexão. A confirmação não foi registrada.');if(!['whatsapp','email','copy'].includes(channel))throw new Error('Forma de compartilhamento inválida.');const uid=requireUser(),id=crypto.randomUUID(),ref=doc(db,'shares',id);await runTransaction(db,async transaction=>{const invoice=await transaction.get(doc(db,'invoices',invoiceId));if(!invoice.exists())throw new Error('A fatura não foi encontrada.');transaction.set(ref,{schemaVersion:1,id,invoiceId,clientId:invoice.data().clientId,channel,sharedAt:serverTimestamp(),sharedBy:uid});});return id;
 }

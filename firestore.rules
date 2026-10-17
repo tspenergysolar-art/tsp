@@ -57,6 +57,27 @@ service cloud.firestore {
         d.solarCreditDiscount is number && d.solarCreditDiscount >= 0 && d.tariffFlag is number && d.tariffFlag >= 0 && d.publicLighting is number && d.publicLighting >= 0 && d.taxes is number && d.taxes >= 0 && d.otherCharges is number && d.otherCharges >= 0 &&
         d.calculatedConsumption is number && d.calculatedConsumption >= 0 && d.manualOverride is bool;
     }
+    function billingOk(d) {
+      return d.keys().hasAll(['schemaVersion','useClientTariff','injectedRate','tusdRate','teRate','icmsRate','pisRate','cofinsRate','revision','versionId','updatedAt','updatedBy']) &&
+        d.keys().hasOnly(['schemaVersion','useClientTariff','injectedRate','tusdRate','teRate','icmsRate','pisRate','cofinsRate','revision','versionId','updatedAt','updatedBy']) && auditOk(d) && d.useClientTariff is bool &&
+        d.injectedRate is number && d.injectedRate >= 0 && d.tusdRate is number && d.tusdRate >= 0 && d.teRate is number && d.teRate >= 0 &&
+        d.icmsRate is number && d.icmsRate >= 0 && d.icmsRate <= 100 && d.pisRate is number && d.pisRate >= 0 && d.pisRate <= 100 && d.cofinsRate is number && d.cofinsRate >= 0 && d.cofinsRate <= 100;
+    }
+    function invoiceOk(d, id) {
+      return d.keys().hasAll(['schemaVersion','id','status','reference','issueDate','dueDate','companyVersionId','clientId','consumptionId','client','consumption','billingSettings','items','taxes','calculatedTotal','total','totalManualOverride','formulaVersion','history','line','barcode','notes','supersedesInvoiceId','issuedAt','issuedBy']) &&
+        d.keys().hasOnly(['schemaVersion','id','status','reference','issueDate','dueDate','companyVersionId','clientId','consumptionId','client','consumption','billingSettings','items','taxes','calculatedTotal','total','totalManualOverride','formulaVersion','history','line','barcode','notes','supersedesInvoiceId','issuedAt','issuedBy']) &&
+        d.schemaVersion == 1 && d.id == id && d.status == 'issued' && d.reference.matches('^[0-9]{4}-(0[1-9]|1[0-2])$') && shortText(d,'issueDate') && shortText(d,'dueDate') &&
+        shortText(d,'companyVersionId') && shortText(d,'clientId') && shortText(d,'consumptionId') && d.client is map && d.consumption is map && d.billingSettings is map &&
+        d.items is list && d.items.size() <= 20 && d.taxes is list && d.taxes.size() <= 10 && d.history is list && d.history.size() <= 6 &&
+        d.calculatedTotal is number && d.calculatedTotal >= 0 && d.total is number && d.total >= 0 && d.totalManualOverride is bool && d.formulaVersion == 1 &&
+        shortText(d,'line') && shortText(d,'barcode') && longText(d,'notes') && shortText(d,'supersedesInvoiceId') && d.issuedAt == request.time && d.issuedBy == request.auth.uid;
+    }
+    function paymentOk(d,id) {
+      return d.keys().hasAll(['schemaVersion','id','invoiceId','clientId','paymentDate','amount','method','notes','status','createdAt','createdBy','cancelledAt','cancelledBy','cancellationReason']) && d.keys().hasOnly(['schemaVersion','id','invoiceId','clientId','paymentDate','amount','method','notes','status','createdAt','createdBy','cancelledAt','cancelledBy','cancellationReason']) && d.schemaVersion == 1 && d.id == id && shortText(d,'invoiceId') && shortText(d,'clientId') && shortText(d,'paymentDate') && d.amount is number && d.amount > 0 && shortText(d,'method') && d.method.size() > 0 && longText(d,'notes') && d.status in ['active','cancelled'] && d.createdBy is string && shortText(d,'cancelledBy') && longText(d,'cancellationReason');
+    }
+    function shareOk(d,id) {
+      return d.keys().hasAll(['schemaVersion','id','invoiceId','clientId','channel','sharedAt','sharedBy']) && d.keys().hasOnly(['schemaVersion','id','invoiceId','clientId','channel','sharedAt','sharedBy']) && d.schemaVersion == 1 && d.id == id && shortText(d,'invoiceId') && shortText(d,'clientId') && d.channel in ['whatsapp','email','copy'] && d.sharedAt == request.time && d.sharedBy == request.auth.uid;
+    }
     match /admins/{uid} {
       // O console provisiona administradores; o navegador nunca concede privilégios.
       allow get: if request.auth != null && request.auth.uid == uid;
@@ -101,6 +122,33 @@ service cloud.firestore {
       allow read: if admin();
       allow create: if admin() && consumptionOk(request.resource.data,request.resource.data.id) && request.resource.data.versionId == versionId &&
         getAfter(/databases/$(database)/documents/consumptions/$(request.resource.data.id)).data == request.resource.data;
+      allow update, delete: if false;
+    }
+    match /billingSettings/current {
+      allow read: if admin();
+      allow create: if admin() && billingOk(request.resource.data) && request.resource.data.revision == 1 && !exists(/databases/$(database)/documents/billingSettingsVersions/$(request.resource.data.versionId)) && getAfter(/databases/$(database)/documents/billingSettingsVersions/$(request.resource.data.versionId)).data == request.resource.data;
+      allow update: if admin() && billingOk(request.resource.data) && request.resource.data.revision == resource.data.revision + 1 && !exists(/databases/$(database)/documents/billingSettingsVersions/$(request.resource.data.versionId)) && getAfter(/databases/$(database)/documents/billingSettingsVersions/$(request.resource.data.versionId)).data == request.resource.data;
+      allow delete: if false;
+    }
+    match /billingSettingsVersions/{versionId} {
+      allow read: if admin();
+      allow create: if admin() && billingOk(request.resource.data) && request.resource.data.versionId == versionId && getAfter(/databases/$(database)/documents/billingSettings/current).data == request.resource.data;
+      allow update, delete: if false;
+    }
+    match /invoices/{id} {
+      allow read: if admin();
+      allow create: if admin() && invoiceOk(request.resource.data,id) && exists(/databases/$(database)/documents/settingsVersions/$(request.resource.data.companyVersionId)) && exists(/databases/$(database)/documents/clients/$(request.resource.data.clientId)) && exists(/databases/$(database)/documents/consumptions/$(request.resource.data.consumptionId)) && get(/databases/$(database)/documents/consumptions/$(request.resource.data.consumptionId)).data.clientId == request.resource.data.clientId && get(/databases/$(database)/documents/consumptions/$(request.resource.data.consumptionId)).data.reference == request.resource.data.reference && (request.resource.data.supersedesInvoiceId == '' || exists(/databases/$(database)/documents/invoices/$(request.resource.data.supersedesInvoiceId)));
+      allow update, delete: if false;
+    }
+    match /payments/{id} {
+      allow read: if admin();
+      allow create: if admin() && paymentOk(request.resource.data,id) && request.resource.data.status == 'active' && request.resource.data.createdAt == request.time && request.resource.data.createdBy == request.auth.uid && request.resource.data.cancelledAt == null && request.resource.data.cancelledBy == '' && request.resource.data.cancellationReason == '' && exists(/databases/$(database)/documents/invoices/$(request.resource.data.invoiceId)) && get(/databases/$(database)/documents/invoices/$(request.resource.data.invoiceId)).data.clientId == request.resource.data.clientId;
+      allow update: if admin() && paymentOk(request.resource.data,id) && resource.data.status == 'active' && request.resource.data.status == 'cancelled' && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status','cancelledAt','cancelledBy','cancellationReason']) && request.resource.data.cancelledAt == request.time && request.resource.data.cancelledBy == request.auth.uid && request.resource.data.cancellationReason.size() > 0;
+      allow delete: if false;
+    }
+    match /shares/{id} {
+      allow read: if admin();
+      allow create: if admin() && shareOk(request.resource.data,id) && exists(/databases/$(database)/documents/invoices/$(request.resource.data.invoiceId)) && get(/databases/$(database)/documents/invoices/$(request.resource.data.invoiceId)).data.clientId == request.resource.data.clientId;
       allow update, delete: if false;
     }
     // Demais coleções permanecem fechadas até sua implementação.

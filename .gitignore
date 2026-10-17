@@ -8,3 +8,5 @@ private/
 test-results/
 playwright-report/
 .runtime/
+output/
+tmp/
