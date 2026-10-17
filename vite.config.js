@@ -1,2 +1,5 @@
 import {defineConfig} from 'vite';
-export default defineConfig({base:process.env.GITHUB_ACTIONS?'/tsp/':'/'});
+import {readFileSync} from 'node:fs';
+
+const {version}=JSON.parse(readFileSync(new URL('./package.json',import.meta.url),'utf8'));
+export default defineConfig({base:process.env.GITHUB_ACTIONS?'/tsp/':'/',define:{__APP_VERSION__:JSON.stringify(version)}});

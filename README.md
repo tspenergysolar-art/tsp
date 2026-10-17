@@ -27,6 +27,10 @@ Firebase Hosting estático também é compatível, mas não é necessário para 
 
 Somente `dist/` é publicado. Não publicar PDFs de clientes, backups ou o diretório `private/`.
 
+## Backup local por versão
+
+Depois de compilar e confirmar cada versão, execute `npm run backup`. O pacote é criado somente neste computador, em `backups/versao-X.Y.Z/`, contendo o site pronto para publicação, o código-fonte versionado e um arquivo de identificação. A pasta `backups/` é ignorada pelo Git e nunca é enviada ao GitHub.
+
 ## Aplicativo instalável
 
 O manifesto, os ícones e o service worker ficam em `public/`. No Android, a instalação usa o aviso do Chrome ou a opção “Instalar app”. No iPhone/iPad, usa Safari → Compartilhar → Adicionar à Tela de Início → Abrir como App Web. O aplicativo utiliza a mesma URL, autenticação e base de dados do site; não precisa ser publicado em loja.
@@ -46,7 +50,7 @@ O service worker armazena somente os arquivos estáticos da própria origem. Cha
 - `shares/{uuid}`: confirmação manual de compartilhamento concluído.
 - Revisão esperada evita sobrescrever silenciosamente alterações simultâneas.
 - Faturas corrigidas continuam disponíveis como “Substituídas”, mas deixam de compor faturamento, pendências e indicadores para evitar cobrança duplicada.
-- O logotipo é convertido no navegador para WebP e limitado a 90.000 caracteres. Ele é armazenado com a versão, sem Cloud Storage. O QR PIX é gerado em cada fatura e não precisa ser armazenado como imagem.
+- O logotipo é convertido no navegador para PNG com transparência e limitado a 90.000 caracteres. Ele é armazenado com a versão, sem Cloud Storage. O QR PIX é gerado em cada fatura e não precisa ser armazenado como imagem.
 - Cache do Firestore somente em memória. Sessão padrão limitada à aba; “Manter conectado” usa persistência do Firebase Auth no dispositivo. Logout limpa os dados da interface. Revogar `active` bloqueia acesso no servidor e encerra a visualização na próxima atualização recebida.
 - Importação JSON só prepara o formulário; depende de Salvar. Exportação permite rascunho privado. O histórico lista as dez versões mais recentes e permite exportá-las.
 
