@@ -97,11 +97,11 @@ export function errorMessage(error) {
     'auth/user-disabled':'Esta conta foi desativada. Procure o responsável pelo sistema.',
     'auth/too-many-requests':'Muitas tentativas. Aguarde alguns minutos e tente novamente.',
     'auth/network-request-failed':'Não foi possível conectar. Confira sua internet.',
-    'auth/operation-not-allowed':'Ative o login por e-mail e senha no console Firebase.',
-    'auth/configuration-not-found':'O Authentication ainda precisa ser ativado no projeto Firebase.',
+    'auth/operation-not-allowed':'O login por e-mail não está disponível. Contate o suporte.',
+    'auth/configuration-not-found':'O acesso ainda não está disponível. Contate o suporte.',
     'permission-denied':'Acesso negado. Confira a autorização administrativa e as regras do Firestore.',
     'unavailable':'O servidor está indisponível. Confira sua conexão e tente novamente.',
-    'resource-exhausted':'A cota gratuita foi atingida. Aguarde a renovação e confira o uso no Firebase.',
+    'resource-exhausted':'O serviço está temporariamente indisponível. Tente novamente mais tarde.',
   };
   return map[error.code] || (error.code ? 'Não foi possível concluir a operação. Tente novamente.' : error.message) || 'Ocorreu um erro inesperado.';
 }
