@@ -24,7 +24,8 @@ export function validateBillingSettings(value){
 
 export function calculateInvoice(consumption,client,settings,override=''){
   validateBillingSettings(settings);
-  const injectedRate=settings.useClientTariff?Number(client.tariff||0):settings.injectedRate;
+  const monthlyRate=Number(consumption.saleTariff||0);
+  const injectedRate=monthlyRate>0?monthlyRate:(settings.useClientTariff?Number(client.tariff||0):settings.injectedRate);
   const grossEnergy=round(Number(consumption.injectedEnergy||0)*injectedRate);
   const contractDiscount=round(grossEnergy*Number(client.discountPercent||0)/100);
   const items=[
@@ -50,7 +51,7 @@ export function calculateInvoice(consumption,client,settings,override=''){
 export function buildInvoiceSnapshot({id,client,consumption,company,settings,calculation,history=[],issueDate,dueDate,line='',barcode='',notes='',supersedesInvoiceId=''}){
   return {schemaVersion:1,id,status:'issued',reference:consumption.reference,issueDate,dueDate,companyVersionId:company.versionId,clientId:client.id,consumptionId:consumption.id,
     client:{name:client.name,taxId:client.taxId,email:client.email,phone:client.phone,whatsapp:client.whatsapp,address:client.address,installationNumber:client.installationNumber,meterNumber:client.meterNumber,supplyType:client.supplyType,tariff:Number(client.tariff||0),discountPercent:Number(client.discountPercent||0)},
-    consumption:{previousReadDate:consumption.previousReadDate,currentReadDate:consumption.currentReadDate,previousReading:Number(consumption.previousReading),currentReading:Number(consumption.currentReading),multiplier:Number(consumption.multiplier),measuredConsumption:Number(consumption.measuredConsumption),injectedEnergy:Number(consumption.injectedEnergy),manualOverride:consumption.manualOverride===true},
+    consumption:{previousReadDate:consumption.previousReadDate,currentReadDate:consumption.currentReadDate,previousReading:Number(consumption.previousReading),currentReading:Number(consumption.currentReading),multiplier:Number(consumption.multiplier),measuredConsumption:Number(consumption.measuredConsumption),injectedEnergy:Number(consumption.injectedEnergy),saleTariff:Number(consumption.saleTariff||0),manualOverride:consumption.manualOverride===true},
     billingSettings:{...settings},items:calculation.items,taxes:calculation.taxes,calculatedTotal:calculation.calculatedTotal,total:calculation.total,totalManualOverride:calculation.manualOverride,formulaVersion:calculation.formulaVersion,
     history:history.slice(0,6).map(c=>({reference:c.reference,consumption:Number(c.measuredConsumption||0)})),line:String(line).trim(),barcode:String(barcode).trim(),notes:String(notes).trim(),supersedesInvoiceId:String(supersedesInvoiceId||''),cancelledAt:null,cancelledBy:'',cancellationReason:''};
 }

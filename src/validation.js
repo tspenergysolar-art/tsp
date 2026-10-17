@@ -3,7 +3,7 @@ export const longFields = ['bankDetails','address','contract','notices','whatsap
 export const emptyProfile = () => Object.fromEntries(profileFields.map(k => [k, '']));
 export const digits = s => String(s).replace(/\D/g, '');
 export const clientFields = ['name','taxId','email','phone','whatsapp','address','installationNumber','meterNumber','supplyType','contractStart','tariff','discountPercent','notes','status'];
-export const consumptionFields = ['reference','previousReadDate','currentReadDate','previousReading','currentReading','multiplier','measuredConsumption','injectedEnergy','tusdConsumption','teConsumption','solarCreditDiscount','tariffFlag','publicLighting','taxes','otherCharges','notes','dueDate'];
+export const consumptionFields = ['reference','previousReadDate','currentReadDate','previousReading','currentReading','multiplier','measuredConsumption','injectedEnergy','saleTariff','tusdConsumption','teConsumption','solarCreditDiscount','tariffFlag','publicLighting','taxes','otherCharges','notes','dueDate'];
 export function validCpf(value) {
   const d = digits(value);
   if (!/^\d{11}$/.test(d) || /^(\d)\1+$/.test(d)) return false;
