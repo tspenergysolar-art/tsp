@@ -9,7 +9,7 @@ Concluída em 16/10/2026.
 - Autorização adicional pela coleção `admins`: autenticar não basta; o documento do UID precisa ter `active: true`.
 - Painel inicial responsivo, menu lateral no computador e menu compacto no celular.
 - Tela de configurações da empresa com identidade, contato, dados PIX, banco, contrato, avisos e mensagens.
-- Upload local de logo e QR Code em PNG/JPG/WebP, com redimensionamento, limite e confirmação manual do QR.
+- Upload local do logotipo em PNG/JPG/WebP, com redimensionamento e limite. O envio manual de QR foi removido na versão 0.8.1, pois o sistema passou a gerar o PIX de cada fatura.
 - Dia padrão de vencimento opcional. Nenhuma data contratual foi inventada.
 - Salvamento transacional no Firestore com revisão otimista e versão imutável de cada alteração.
 - Importação e exportação privada das configurações em JSON.
@@ -56,4 +56,4 @@ O arquivo `private/configuracoes-iniciais.json` foi criado localmente, está ign
 
 ## Configuração manual pendente
 
-Na tela de configurações, o administrador ainda deve completar e confirmar os campos que não constavam no PDF: endereço, cidade do beneficiário PIX, banco/dados bancários, informações contratuais, dia padrão de vencimento, logotipo e QR Code bancário. A chave PIX e o beneficiário foram salvos a partir do documento de referência, mas a titularidade bancária não pode ser comprovada pelo sistema.
+Na tela de configurações, o administrador ainda deve completar e confirmar os campos que não constavam no PDF: endereço, cidade do beneficiário PIX, banco/dados bancários, informações contratuais, dia padrão de vencimento e logotipo. A chave PIX e o beneficiário foram salvos a partir do documento de referência, mas a titularidade bancária não pode ser comprovada pelo sistema.

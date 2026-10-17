@@ -39,7 +39,7 @@ Somente `dist/` é publicado. Não publicar PDFs de clientes, backups ou o diret
 - `payments/{uuid}`: pagamento manual; cancelamento mantém histórico e auditoria.
 - `shares/{uuid}`: confirmação manual de compartilhamento concluído.
 - Revisão esperada evita sobrescrever silenciosamente alterações simultâneas.
-- Imagens convertidas no navegador para PNG/WebP; cada string final é limitada a 90.000 caracteres. São armazenadas com a versão, sem Cloud Storage. Isso consome cota e deve ser monitorado.
+- O logotipo é convertido no navegador para WebP e limitado a 90.000 caracteres. Ele é armazenado com a versão, sem Cloud Storage. O QR PIX é gerado em cada fatura e não precisa ser armazenado como imagem.
 - Cache do Firestore somente em memória. Sessão padrão limitada à aba; “Manter conectado” usa persistência do Firebase Auth no dispositivo. Logout limpa os dados da interface. Revogar `active` bloqueia acesso no servidor e encerra a visualização na próxima atualização recebida.
 - Importação JSON só prepara o formulário; depende de Salvar. Exportação permite rascunho privado. O histórico lista as dez versões mais recentes e permite exportá-las.
 
