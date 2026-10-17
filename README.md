@@ -36,9 +36,10 @@ Somente `dist/` é publicado. Não publicar PDFs de clientes, backups ou o diret
 - `consumptions/{cliente--AAAA-MM}` e `consumptionVersions/{uuid}`: um lançamento atual por cliente e referência, acompanhado de cada versão anterior.
 - `billingSettings/current` e `billingSettingsVersions/{uuid}`: tarifas e alíquotas atuais com histórico imutável.
 - `invoices/{uuid}`: snapshot imutável de cada emissão. A segunda via usa os dados originais.
-- `payments/{uuid}`: pagamento manual; cancelamento mantém histórico e auditoria.
+- `payments/{uuid}`: pagamento manual; cancelamento mantém histórico e auditoria. O contas a receber oferece resumo financeiro, faixas de atraso, filtros, extrato por cliente e exportação XLSX/CSV.
 - `shares/{uuid}`: confirmação manual de compartilhamento concluído.
 - Revisão esperada evita sobrescrever silenciosamente alterações simultâneas.
+- Faturas corrigidas continuam disponíveis como “Substituídas”, mas deixam de compor faturamento, pendências e indicadores para evitar cobrança duplicada.
 - O logotipo é convertido no navegador para WebP e limitado a 90.000 caracteres. Ele é armazenado com a versão, sem Cloud Storage. O QR PIX é gerado em cada fatura e não precisa ser armazenado como imagem.
 - Cache do Firestore somente em memória. Sessão padrão limitada à aba; “Manter conectado” usa persistência do Firebase Auth no dispositivo. Logout limpa os dados da interface. Revogar `active` bloqueia acesso no servidor e encerra a visualização na próxima atualização recebida.
 - Importação JSON só prepara o formulário; depende de Salvar. Exportação permite rascunho privado. O histórico lista as dez versões mais recentes e permite exportá-las.
