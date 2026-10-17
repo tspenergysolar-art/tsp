@@ -11,6 +11,14 @@ export function registerPwa(){
   if(import.meta.env.PROD&&'serviceWorker' in navigator)window.addEventListener('load',()=>navigator.serviceWorker.register(`${import.meta.env.BASE_URL}sw.js`,{scope:import.meta.env.BASE_URL}).catch(error=>console.warn('Não foi possível ativar o modo aplicativo.',error)));
 }
 
+export async function requestPwaInstall(){
+  if(standalone())return {installed:true};
+  if(!installPrompt)return {available:false};
+  const prompt=installPrompt;await prompt.prompt();const choice=await prompt.userChoice;installPrompt=null;
+  window.dispatchEvent(new CustomEvent('tsp-install-ready'));
+  return {available:true,accepted:choice.outcome==='accepted'};
+}
+
 export function mountInstall(container){
   const draw=()=>{
     const installed=standalone(),ios=appleMobile();

@@ -11,7 +11,7 @@ import { mountImport } from './imports.js';
 import { mountInvoices } from './invoices.js';
 import { mountPayments } from './payments.js';
 import { mountDashboard } from './dashboard.js';
-import { registerPwa, mountInstall } from './pwa.js';
+import { registerPwa, mountInstall, requestPwaInstall } from './pwa.js';
 
 const root=document.querySelector('#app');
 const baseUrl=import.meta.env.BASE_URL;
@@ -23,6 +23,15 @@ const emulatorLabel=isEmulator?'<div class="environment">AMBIENTE LOCAL DE TESTE
 function clearData() {company=null;images={logo:''};authorized=false;dirty=false;busy=false;}
 function alertIn(id,message) {const el=$(id);if(el){el.textContent=message;el.hidden=!message;}}
 function canLeave() {return !dirty || confirm('Há alterações não salvas. Deseja sair desta tela e descartá-las?');}
+function setMobileMenu(open=false) {
+  const sidebar=$('#sidebar'), backdrop=$('#sidebar-backdrop'), toggles=root.querySelectorAll('#menu-toggle,#mobile-more,#mobile-account');
+  sidebar?.classList.toggle('open',open);
+  backdrop?.classList.toggle('open',open);
+  toggles.forEach(toggle=>toggle.setAttribute('aria-expanded',String(open)));
+  $('#menu-toggle')?.setAttribute('aria-label',open?'Fechar menu':'Abrir menu');
+  $('#mobile-more')?.classList.toggle('active',open);
+  document.body.classList.toggle('menu-open',open);
+}
 function network() {
   const offline=!navigator.onLine;
   root.querySelectorAll('[data-online]').forEach(el=>el.disabled=offline||busy);
@@ -32,6 +41,7 @@ window.addEventListener('offline',network);window.addEventListener('online',netw
 window.addEventListener('beforeunload',event=>{if(dirty||busy){event.preventDefault();event.returnValue='';}});
 
 function loginScreen(message='') {
+  document.body.classList.remove('menu-open');
   root.innerHTML=`${emulatorLabel}<div class="login-layout">
     <section class="login-story"><a class="brand" href="#">${brand()}</a><div class="story-copy"><span class="eyebrow light">ENERGIA QUE APROXIMA</span><h1>Uma gestão clara.<br>Um futuro<br><em>mais sustentável.</em></h1><p>O espaço da TSP Energy Solar para organizar sua operação, com tudo no lugar.</p></div><div class="solar-scene" aria-hidden="true"><div class="sun-disc"></div><div class="orbit orbit-one"></div><div class="orbit orbit-two"></div><div class="panel-grid"></div></div><div class="story-footer"><span class="tiny-dot"></span> SOLAR & ENERGIA SUSTENTÁVEL <span>01 / ACESSO</span></div></section>
     <section class="login-side"><div class="login-card"><div class="lock-mark">${icon('lock')}</div><span class="eyebrow">ÁREA ADMINISTRATIVA</span><h2>Bem-vindo de volta.</h2><p class="muted">Entre com sua conta para cuidar da sua operação.</p><form id="login-form"><label>E-mail<input name="email" type="email" autocomplete="username" placeholder="voce@empresa.com.br" required maxlength="200"></label><label>Senha<div class="password-wrap"><input name="password" id="password" type="password" autocomplete="current-password" required><button type="button" id="show-password" aria-controls="password" aria-pressed="false">Mostrar</button></div></label><div class="login-options"><label class="checkbox"><input name="remember" type="checkbox"> Manter conectado neste dispositivo</label></div><div id="login-error" class="notice error" role="alert" ${message?'':'hidden'}>${e(message)}</div><button class="button primary full" data-online type="submit">Entrar no sistema ${icon('arrow')}</button><button class="text-button full" id="reset-password" type="button">Esqueci minha senha</button></form><div class="access-note">${icon('shield')}<span>Acesso exclusivo a administradores autorizados.</span></div><a class="guide-link" href="${baseUrl}configuracao.html" target="_blank" rel="noopener">Consulte o manual de uso</a></div><footer class="login-footer">TSP ENERGY SOLAR</footer></section></div><div id="network" class="offline-banner" hidden>Sem conexão. Reconecte para entrar ou salvar alterações.</div>`;
@@ -56,6 +66,7 @@ function loginScreen(message='') {
 }
 
 function accessScreen(title,message,loading=false) {
+  document.body.classList.remove('menu-open');
   root.innerHTML=`${emulatorLabel}<div class="access-page"><a class="brand dark" href="#">${brand()}</a><section class="access-card"><div class="lock-mark">${icon('shield')}</div><h1>${e(title)}</h1><p>${e(message)}</p>${loading?'<div class="spinner" role="status" aria-label="Verificando autorização"></div>':`<p class="muted small">Conta: ${e(user?.email)}</p><button id="retry-access" class="button primary">Verificar novamente</button><a class="button secondary" href="${baseUrl}configuracao.html" target="_blank" rel="noopener">Manual de uso</a>`}<button id="logout" class="text-button">Sair da conta</button></section></div>`;
   $('#logout').onclick=logout;
   if($('#retry-access'))$('#retry-access').onclick=()=>authorize(user);
@@ -86,10 +97,16 @@ onAuthStateChanged(auth,authorize);
 
 function renderShell() {
   if(!authorized)return;
-  root.innerHTML=`${emulatorLabel}<div class="app-layout"><aside class="sidebar" id="sidebar"><a class="brand" href="#overview">${brand(true)}</a><div class="workspace-label">PAINEL ADMINISTRATIVO</div><nav aria-label="Menu principal"><a data-nav="overview" href="#overview">${icon('grid')} Visão geral</a><a data-nav="settings" href="#settings">${icon('settings')} Configurações</a><a href="${baseUrl}configuracao.html" target="_blank" rel="noopener">${icon('file')} Manual de uso</a></nav><div class="sidebar-bottom"><div class="solar-note">${icon('sun')}<span>Energia solar.<br><strong>Gestão consciente.</strong></span></div><div class="user-block"><span class="avatar">${e((user.email||'A').charAt(0).toUpperCase())}</span><div><strong>Administrador</strong><small>${e(user.email)}</small></div><button id="logout" class="icon-button" aria-label="Sair da conta" title="Sair da conta">${icon('out')}</button></div></div></aside><div class="workspace"><header class="topbar"><button class="icon-button mobile-menu" id="menu-toggle" aria-label="Abrir menu" aria-expanded="false" aria-controls="sidebar">${icon('menu')}</button><div class="breadcrumb">Área administrativa <span>/</span> <strong id="breadcrumb-page">Visão geral</strong></div><span class="secure-label">${icon('shield')} Acesso autorizado</span></header><div id="network" class="notice warning" hidden>Sem conexão. Você pode revisar o formulário, mas precisa reconectar para salvar.</div><main id="page" tabindex="-1"></main><footer class="workspace-footer">TSP ENERGY SOLAR</footer></div></div>`;
+  root.innerHTML=`${emulatorLabel}<div class="app-layout"><aside class="sidebar" id="sidebar"><div class="sidebar-head"><a class="brand" href="#overview">${brand(true)}</a><button id="sidebar-close" class="icon-button sidebar-close" type="button" aria-label="Fechar menu">×</button></div><div class="workspace-label">PAINEL ADMINISTRATIVO</div><nav aria-label="Menu principal"><a data-nav="overview" href="#overview">${icon('grid')} Visão geral</a><a data-nav="settings" href="#settings">${icon('settings')} Configurações</a><a href="${baseUrl}configuracao.html" target="_blank" rel="noopener">${icon('file')} Manual de uso</a></nav><div class="sidebar-bottom"><div class="solar-note">${icon('sun')}<span>Energia solar.<br><strong>Gestão consciente.</strong></span></div><div class="user-block"><span class="avatar">${e((user.email||'A').charAt(0).toUpperCase())}</span><div><strong>Administrador</strong><small>${e(user.email)}</small></div><button id="logout" class="icon-button" aria-label="Sair da conta" title="Sair da conta">${icon('out')}</button></div></div></aside><button class="sidebar-backdrop" id="sidebar-backdrop" type="button" aria-label="Fechar menu"></button><div class="workspace"><header class="topbar"><button class="icon-button mobile-menu" id="menu-toggle" aria-label="Abrir menu" aria-expanded="false" aria-controls="sidebar">${icon('menu')}</button><a class="brand mobile-top-brand" data-nav="overview" href="#overview">${brand(true)}</a><div class="breadcrumb">Área administrativa <span>/</span> <strong id="breadcrumb-page">Visão geral</strong></div><button class="mobile-install-button" id="quick-install" type="button">Instalar app</button><button class="mobile-account" id="mobile-account" type="button" aria-label="Abrir conta e menu" aria-expanded="false" aria-controls="sidebar">${e((user.email||'A').charAt(0).toUpperCase())}</button><span class="secure-label">${icon('shield')} Acesso autorizado</span></header><div id="network" class="notice warning" hidden>Sem conexão. Você pode revisar o formulário, mas precisa reconectar para salvar.</div><main id="page" tabindex="-1"></main><footer class="workspace-footer">TSP ENERGY SOLAR</footer></div><nav class="mobile-bottom-nav" aria-label="Navegação principal"><a data-nav="overview" href="#overview">${icon('grid')}<span>Resumo</span></a><a data-nav="clients" href="#clients">${icon('users')}<span>Clientes</span></a><a data-nav="invoices" href="#invoices">${icon('file')}<span>Faturas</span></a><button id="mobile-more" type="button" aria-label="Abrir mais opções" aria-expanded="false" aria-controls="sidebar">${icon('menu')}<span>Mais</span></button></nav></div>`;
   root.querySelector('[data-nav="settings"]').insertAdjacentHTML('beforebegin',`<a data-nav="clients" href="#clients">${icon('users')} Clientes</a><a data-nav="consumption" href="#consumption">${icon('bolt')} Consumo mensal</a><a data-nav="import" href="#import">${icon('upload')} Importação de dados</a><a data-nav="invoices" href="#invoices">${icon('file')} Faturamento mensal</a><a data-nav="payments" href="#payments">${icon('check')} Contas a receber</a><a data-nav="install" href="#install">${icon('sun')} Instalar aplicativo</a>`);
   $('#logout').onclick=logout;
-  $('#menu-toggle').onclick=()=>{const open=$('#sidebar').classList.toggle('open');$('#menu-toggle').setAttribute('aria-expanded',String(open));};
+  $('#menu-toggle').onclick=()=>setMobileMenu(!$('#sidebar').classList.contains('open'));
+  $('#mobile-more').onclick=()=>setMobileMenu(!$('#sidebar').classList.contains('open'));
+  $('#mobile-account').onclick=()=>setMobileMenu(!$('#sidebar').classList.contains('open'));
+  $('#quick-install').onclick=async()=>{const result=await requestPwaInstall();if(result.installed)toast('O aplicativo já está instalado.');else if(!result.available)navigate('install');};
+  $('#sidebar-close').onclick=()=>setMobileMenu(false);
+  $('#sidebar-backdrop').onclick=()=>setMobileMenu(false);
+  document.onkeydown=event=>{if(event.key==='Escape')setMobileMenu(false);};
   root.querySelectorAll('[data-nav]').forEach(link=>link.onclick=event=>{event.preventDefault();navigate(link.dataset.nav);});
   const requested=location.hash.slice(1);const page=['overview','clients','consumption','import','invoices','payments','install','settings'].includes(requested)?requested:'overview';navigate(page,true);
 }
@@ -98,7 +115,7 @@ function navigate(page,force=false) {
   if(!force&&!canLeave())return;
   dirty=false;history.replaceState(null,'',`#${page}`);
   root.querySelectorAll('[data-nav]').forEach(link=>{const active=link.dataset.nav===page;link.classList.toggle('active',active);if(active)link.setAttribute('aria-current','page');else link.removeAttribute('aria-current');});
-  $('#sidebar').classList.remove('open');$('#menu-toggle').setAttribute('aria-expanded','false');
+  setMobileMenu(false);
   const labels={overview:'Visão geral',clients:'Clientes',consumption:'Consumo mensal',import:'Importação de dados',invoices:'Faturamento mensal',payments:'Contas a receber',install:'Instalar aplicativo',settings:'Configurações'};
   $('#breadcrumb-page').textContent=labels[page];
   if(page==='settings')renderSettings();else if(page==='clients')mountClients($('#page'));else if(page==='consumption')mountConsumption($('#page'));else if(page==='import')mountImport($('#page'));else if(page==='invoices')mountInvoices($('#page'),company);else if(page==='payments')mountPayments($('#page'));else if(page==='install')mountInstall($('#page'));else mountDashboard($('#page'),company,navigate);
