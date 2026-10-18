@@ -1,4 +1,4 @@
-import { doc, getDocFromServer, runTransaction, serverTimestamp, collection, query, orderBy, limit, getDocsFromServer, getDocs, where } from 'firebase/firestore';
+import { doc, getDocFromServer, runTransaction, serverTimestamp, collection, query, orderBy, limit, getDocsFromServer, getDocs, where, writeBatch } from 'firebase/firestore';
 import { auth, db } from './firebase.js';
 import { validateProfile, validImage } from './validation.js';
 import { validateClient, validateConsumption, digits } from './validation.js';
@@ -92,6 +92,21 @@ export async function saveConsumption(client, raw, expectedRevision=0){
   });
   return id;
 }
+export async function deleteConsumption(consumptionId){
+  if(!navigator.onLine)throw new Error('Sem conexão. O cadastro mensal não foi excluído.');
+  requireUser();
+  const current=await getDocFromServer(doc(db,'consumptions',consumptionId));
+  if(!current.exists())throw new Error('Este cadastro mensal já não existe.');
+  const [linkedInvoices,versions]=await Promise.all([
+    getDocsFromServer(query(collection(db,'invoices'),where('consumptionId','==',consumptionId))),
+    getDocsFromServer(query(collection(db,'consumptionVersions'),where('id','==',consumptionId)))
+  ]);
+  if(!linkedInvoices.empty)throw new Error('Exclua primeiro as faturas geradas com este cadastro mensal.');
+  const batch=writeBatch(db);
+  versions.docs.forEach(item=>batch.delete(item.ref));
+  batch.delete(current.ref);
+  await batch.commit();
+}
 export async function listInvoices(reference='',clientId=''){
   let ref=collection(db,'invoices');
   if(reference)ref=query(ref,where('reference','==',reference));else if(clientId)ref=query(ref,where('clientId','==',clientId));
@@ -108,6 +123,22 @@ export async function cancelInvoice(invoiceId,reason){
   const uid=requireUser(),ref=doc(db,'invoices',invoiceId),message=String(reason||'').trim();
   if(!message)throw new Error('Informe o motivo do cancelamento.');
   await runTransaction(db,async transaction=>{const snap=await transaction.get(ref);if(!snap.exists()||snap.data().status!=='issued')throw new Error('Esta fatura não está disponível para cancelamento.');transaction.update(ref,{status:'cancelled',cancelledAt:serverTimestamp(),cancelledBy:uid,cancellationReason:message});});
+}
+export async function deleteInvoice(invoiceId){
+  if(!navigator.onLine)throw new Error('Sem conexão. A fatura não foi excluída.');
+  requireUser();
+  const invoice=await getDocFromServer(doc(db,'invoices',invoiceId));
+  if(!invoice.exists())throw new Error('Esta fatura já não existe.');
+  const [payments,shares]=await Promise.all([
+    getDocsFromServer(query(collection(db,'payments'),where('invoiceId','==',invoiceId))),
+    getDocsFromServer(query(collection(db,'shares'),where('invoiceId','==',invoiceId)))
+  ]);
+  if(payments.size+shares.size>498)throw new Error('Esta fatura possui registros demais para exclusão pelo navegador.');
+  const batch=writeBatch(db);
+  payments.docs.forEach(item=>batch.delete(item.ref));
+  shares.docs.forEach(item=>batch.delete(item.ref));
+  batch.delete(invoice.ref);
+  await batch.commit();
 }
 export async function listPayments(invoiceId=''){
   const ref=invoiceId?query(collection(db,'payments'),where('invoiceId','==',invoiceId)):collection(db,'payments');const result=await getDocsFromServer(ref);return result.docs.map(item=>item.data()).sort((a,b)=>String(b.paymentDate).localeCompare(String(a.paymentDate)));

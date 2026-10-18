@@ -19,7 +19,7 @@
   ],
   "shortcuts": [
     {"name": "Visão geral", "short_name": "Painel", "url": "./#overview", "icons": [{"src": "./icon-192.png", "sizes": "192x192"}]},
-    {"name": "Faturamento mensal", "short_name": "Faturar", "url": "./#invoices", "icons": [{"src": "./icon-192.png", "sizes": "192x192"}]},
+    {"name": "Cadastro de faturas", "short_name": "Faturas", "url": "./#invoices", "icons": [{"src": "./icon-192.png", "sizes": "192x192"}]},
     {"name": "Contas a receber", "short_name": "Receber", "url": "./#payments", "icons": [{"src": "./icon-192.png", "sizes": "192x192"}]}
   ]
 }

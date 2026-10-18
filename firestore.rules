@@ -116,13 +116,14 @@ service cloud.firestore {
         !exists(/databases/$(database)/documents/consumptionVersions/$(request.resource.data.versionId)) && getAfter(/databases/$(database)/documents/consumptionVersions/$(request.resource.data.versionId)).data == request.resource.data;
       allow update: if admin() && consumptionOk(request.resource.data,id) && request.resource.data.revision == resource.data.revision + 1 && request.resource.data.clientId == resource.data.clientId && request.resource.data.reference == resource.data.reference && request.resource.data.createdAt == resource.data.createdAt && request.resource.data.createdBy == resource.data.createdBy &&
         !exists(/databases/$(database)/documents/consumptionVersions/$(request.resource.data.versionId)) && getAfter(/databases/$(database)/documents/consumptionVersions/$(request.resource.data.versionId)).data == request.resource.data;
-      allow delete: if false;
+      allow delete: if admin();
     }
     match /consumptionVersions/{versionId} {
       allow read: if admin();
       allow create: if admin() && consumptionOk(request.resource.data,request.resource.data.id) && request.resource.data.versionId == versionId &&
         getAfter(/databases/$(database)/documents/consumptions/$(request.resource.data.id)).data == request.resource.data;
-      allow update, delete: if false;
+      allow update: if false;
+      allow delete: if admin();
     }
     match /billingSettings/current {
       allow read: if admin();
@@ -139,18 +140,19 @@ service cloud.firestore {
       allow read: if admin();
       allow create: if admin() && invoiceOk(request.resource.data,id) && request.resource.data.status == 'issued' && request.resource.data.issuedAt == request.time && request.resource.data.issuedBy == request.auth.uid && request.resource.data.cancelledAt == null && request.resource.data.cancelledBy == '' && request.resource.data.cancellationReason == '' && exists(/databases/$(database)/documents/settingsVersions/$(request.resource.data.companyVersionId)) && exists(/databases/$(database)/documents/clients/$(request.resource.data.clientId)) && exists(/databases/$(database)/documents/consumptions/$(request.resource.data.consumptionId)) && get(/databases/$(database)/documents/consumptions/$(request.resource.data.consumptionId)).data.clientId == request.resource.data.clientId && get(/databases/$(database)/documents/consumptions/$(request.resource.data.consumptionId)).data.reference == request.resource.data.reference && (request.resource.data.supersedesInvoiceId == '' || exists(/databases/$(database)/documents/invoices/$(request.resource.data.supersedesInvoiceId)));
       allow update: if admin() && invoiceOk(request.resource.data,id) && resource.data.status == 'issued' && request.resource.data.status == 'cancelled' && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status','cancelledAt','cancelledBy','cancellationReason']) && request.resource.data.cancelledAt == request.time && request.resource.data.cancelledBy == request.auth.uid && request.resource.data.cancellationReason.size() > 0;
-      allow delete: if false;
+      allow delete: if admin();
     }
     match /payments/{id} {
       allow read: if admin();
       allow create: if admin() && paymentOk(request.resource.data,id) && request.resource.data.status == 'active' && request.resource.data.createdAt == request.time && request.resource.data.createdBy == request.auth.uid && request.resource.data.cancelledAt == null && request.resource.data.cancelledBy == '' && request.resource.data.cancellationReason == '' && exists(/databases/$(database)/documents/invoices/$(request.resource.data.invoiceId)) && get(/databases/$(database)/documents/invoices/$(request.resource.data.invoiceId)).data.status == 'issued' && get(/databases/$(database)/documents/invoices/$(request.resource.data.invoiceId)).data.clientId == request.resource.data.clientId;
       allow update: if admin() && paymentOk(request.resource.data,id) && resource.data.status == 'active' && request.resource.data.status == 'cancelled' && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status','cancelledAt','cancelledBy','cancellationReason']) && request.resource.data.cancelledAt == request.time && request.resource.data.cancelledBy == request.auth.uid && request.resource.data.cancellationReason.size() > 0;
-      allow delete: if false;
+      allow delete: if admin();
     }
     match /shares/{id} {
       allow read: if admin();
       allow create: if admin() && shareOk(request.resource.data,id) && exists(/databases/$(database)/documents/invoices/$(request.resource.data.invoiceId)) && get(/databases/$(database)/documents/invoices/$(request.resource.data.invoiceId)).data.clientId == request.resource.data.clientId;
-      allow update, delete: if false;
+      allow update: if false;
+      allow delete: if admin();
     }
     // Demais coleções permanecem fechadas até sua implementação.
     match /{document=**} { allow read, write: if false; }
