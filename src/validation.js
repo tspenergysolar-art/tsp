@@ -3,7 +3,7 @@ export const longFields = ['bankDetails','address','contract','notices','whatsap
 export const emptyProfile = () => Object.fromEntries(profileFields.map(k => [k, '']));
 export const digits = s => String(s).replace(/\D/g, '');
 export const clientFields = ['name','taxId','email','phone','whatsapp','address','installationNumber','meterNumber','supplyType','contractStart','tariff','discountPercent','notes','status'];
-export const consumptionFields = ['reference','previousReadDate','currentReadDate','previousReading','currentReading','multiplier','measuredConsumption','injectedEnergy','saleTariff','tusdConsumption','teConsumption','solarCreditDiscount','tariffFlag','publicLighting','taxes','otherCharges','notes','dueDate'];
+export const consumptionFields = ['reference','previousReadDate','currentReadDate','nextReadDate','previousReading','currentReading','multiplier','measuredConsumption','injectedEnergy','saleTariff','tusdConsumption','teConsumption','solarCreditDiscount','tariffFlag','publicLighting','taxes','otherCharges','notes','dueDate'];
 export function validCpf(value) {
   const d = digits(value);
   if (!/^\d{11}$/.test(d) || /^(\d)\1+$/.test(d)) return false;
@@ -63,16 +63,22 @@ export function calculatedConsumption(previousReading, currentReading, multiplie
   return Number(((current-previous)*factor).toFixed(3));
 }
 export function normalizeConsumption(raw) {
-  const textKeys=['reference','previousReadDate','currentReadDate','notes','dueDate'];
+  const textKeys=['reference','previousReadDate','currentReadDate','nextReadDate','notes','dueDate'];
   const result={};
   for(const key of consumptionFields) result[key]=textKeys.includes(key)?String(raw[key]??'').trim():Number(raw[key]??0);
   return result;
 }
+function validIsoDate(value) {
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(value))return false;
+  const [year,month,day]=value.split('-').map(Number),date=new Date(Date.UTC(year,month-1,day));
+  return date.getUTCFullYear()===year&&date.getUTCMonth()===month-1&&date.getUTCDate()===day;
+}
 export function validateConsumption(value) {
   if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(value.reference)) throw new Error('Informe o mês e o ano de referência.');
-  for(const key of ['previousReadDate','currentReadDate','dueDate']) if(value[key]&&!/^\d{4}-\d{2}-\d{2}$/.test(value[key])) throw new Error('Confira as datas do lançamento.');
+  for(const key of ['previousReadDate','currentReadDate','nextReadDate','dueDate']) if(!validIsoDate(value[key])) throw new Error('Informe todas as datas de leitura e o vencimento.');
   if(value.previousReadDate&&value.currentReadDate&&value.currentReadDate<value.previousReadDate) throw new Error('A leitura atual não pode ocorrer antes da leitura anterior.');
-  const numeric=consumptionFields.filter(key=>!['reference','previousReadDate','currentReadDate','notes','dueDate'].includes(key));
+  if(value.currentReadDate&&value.nextReadDate&&value.nextReadDate<value.currentReadDate) throw new Error('A próxima leitura não pode ocorrer antes da leitura atual.');
+  const numeric=consumptionFields.filter(key=>!['reference','previousReadDate','currentReadDate','nextReadDate','notes','dueDate'].includes(key));
   for(const key of numeric) if(!Number.isFinite(value[key])||value[key]<0) throw new Error('Os valores do consumo não podem ser negativos.');
   if(value.multiplier<=0) throw new Error('O fator multiplicador deve ser maior que zero.');
   if(value.notes.length>3000) throw new Error('As observações excedem o limite permitido.');

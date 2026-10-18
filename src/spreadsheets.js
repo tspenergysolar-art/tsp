@@ -1,7 +1,7 @@
 import {clientColumns,consumptionColumns,parseCsv,makeCsv,isoDate} from './sheet-data.js';
 
 const labels=columns=>columns.map(([,label])=>label);
-export const templateRows=type=>type==='clients'?[labels(clientColumns),['Exemplo Cliente Solar','','cliente@exemplo.com.br','11999990000','11999990000','Rua Exemplo, 100','UC-EXEMPLO-001','MED-001','Bifásico','2026-01-01',0.8,10,'Remova esta linha antes de importar','Ativo']]:[labels(consumptionColumns),['UC-EXEMPLO-001','10/2026','15/09/2026','15/10/2026',1000,1120,1,120,0,0,0,0,0,0,0,0,'Remova esta linha antes de importar','25/10/2026']];
+export const templateRows=type=>type==='clients'?[labels(clientColumns),['Exemplo Cliente Solar','','cliente@exemplo.com.br','11999990000','11999990000','Rua Exemplo, 100','UC-EXEMPLO-001','MED-001','Bifásico','2026-01-01',0.8,10,'Remova esta linha antes de importar','Ativo']]:[labels(consumptionColumns),['UC-EXEMPLO-001','10/2026','15/09/2026','15/10/2026','15/11/2026',1000,1120,1,120,0,0,0,0,0,0,0,0,0,'Remova esta linha antes de importar','25/10/2026']];
 function download(blob,name){const url=URL.createObjectURL(blob),link=document.createElement('a');link.href=url;link.download=name;link.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}
 export async function readSpreadsheet(file){
   if(file.size>5_000_000)throw new Error('A planilha excede o limite de 5 MB.');
@@ -21,4 +21,4 @@ export async function downloadRows(rows,name,format,sheet='Dados'){
 }
 export const downloadTemplate=(type,format)=>downloadRows(templateRows(type),`modelo-${type==='clients'?'clientes':'consumos'}`,format,type==='clients'?'Clientes':'Consumos');
 export function clientExportRows(records){return [labels(clientColumns),...records.map(item=>[item.name,item.taxId,item.email,item.phone,item.whatsapp,item.address,item.installationNumber,item.meterNumber,item.supplyType,isoDate(item.contractStart),item.tariff,item.discountPercent,item.notes,item.status==='active'?'Ativo':'Inativo'])];}
-export function consumptionExportRows(records){return [labels(consumptionColumns),...records.map(item=>[item.installationNumber,item.reference,item.previousReadDate,item.currentReadDate,item.previousReading,item.currentReading,item.multiplier,item.measuredConsumption,item.injectedEnergy,item.saleTariff||0,item.tusdConsumption,item.teConsumption,item.solarCreditDiscount,item.tariffFlag,item.publicLighting,item.taxes,item.otherCharges,item.notes,item.dueDate])];}
+export function consumptionExportRows(records){return [labels(consumptionColumns),...records.map(item=>[item.installationNumber,item.reference,item.previousReadDate,item.currentReadDate,item.nextReadDate||'',item.previousReading,item.currentReading,item.multiplier,item.measuredConsumption,item.injectedEnergy,item.saleTariff||0,item.tusdConsumption,item.teConsumption,item.solarCreditDiscount,item.tariffFlag,item.publicLighting,item.taxes,item.otherCharges,item.notes,item.dueDate])];}

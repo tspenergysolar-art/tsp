@@ -13,6 +13,7 @@ REFERÊNCIA: OUTUBRO/2026
 VENCIMENTO: 25/10/2026
 DATA DA LEITURA ANTERIOR: 15/09/2026
 DATA DA LEITURA ATUAL: 15/10/2026
+DATA DA PRÓXIMA LEITURA: 15/11/2026
 LEITURA ANTERIOR: 1200
 LEITURA ATUAL: 1480
 FATOR MULTIPLICADOR: 1
@@ -23,6 +24,7 @@ TOTAL A PAGAR: R$ 205,85`]);
   assert.equal(field(fields,'installationNumber').value,'4000123456');
   assert.equal(field(fields,'reference').value,'2026-10');
   assert.equal(field(fields,'dueDate').value,'2026-10-25');
+  assert.equal(field(fields,'nextReadDate').value,'2026-11-15');
   assert.equal(field(fields,'billedConsumption').value,'280');
   assert.equal(field(fields,'injectedEnergy').value,'175');
   assert.equal(field(fields,'publicLighting').value,'18.5');
