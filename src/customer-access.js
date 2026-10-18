@@ -1,6 +1,6 @@
 import {initializeApp,deleteApp} from 'firebase/app';
 import {getAuth,createUserWithEmailAndPassword,sendPasswordResetEmail,signOut,deleteUser,connectAuthEmulator} from 'firebase/auth';
-import {collection,doc,getDocsFromServer,query,where,writeBatch,serverTimestamp,updateDoc} from 'firebase/firestore';
+import {collection,deleteDoc,doc,getDocsFromServer,query,where,writeBatch,serverTimestamp,updateDoc} from 'firebase/firestore';
 import {auth,db,firebaseConfig,isEmulator} from './firebase.js';
 import {publicCompanySettings} from './portal-settings.js';
 
@@ -21,7 +21,7 @@ export async function provisionCustomerAccess(client,company){
   if(!email)throw new Error('Cadastre e salve o e-mail do cliente antes de liberar o acesso.');
   const existing=await getCustomerAccess(client.id);
   if(existing){
-    if(existing.email!==email)throw new Error(`O acesso existente usa ${existing.email}. Para trocar o e-mail, será necessário remover essa conta no Firebase Authentication.`);
+    if(existing.email!==email)throw new Error(`O acesso existente usa ${existing.email}. Para trocar o e-mail, use a opção Redefinir acesso.`);
     await updateDoc(doc(db,'customerAccounts',existing.uid),{active:true,clientName:client.name,updatedAt:serverTimestamp(),updatedBy:adminUid});
     await sendPasswordResetEmail(auth,email);
     return {...existing,active:true,email};
@@ -59,4 +59,11 @@ export async function revokeCustomerAccess(account){
 export async function resendCustomerAccess(account){
   if(!navigator.onLine)throw new Error('Sem conexão. O e-mail não foi enviado.');
   await sendPasswordResetEmail(auth,account.email);
+}
+
+export async function resetCustomerAccess(account){
+  if(!navigator.onLine)throw new Error('Sem conexão. O acesso não foi redefinido.');
+  if(!auth.currentUser?.uid)throw new Error('Entre novamente para continuar.');
+  if(!account?.uid)throw new Error('A conta do cliente não foi encontrada.');
+  await deleteDoc(doc(db,'customerAccounts',account.uid));
 }

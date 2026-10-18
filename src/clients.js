@@ -3,7 +3,7 @@ import {normalizeClient,normalizeConsumption,calculatedConsumption} from './vali
 import {financialRows,financeStatusLabels} from './finance.js';
 import {escapeHtml as e,icon,toast} from './ui.js';
 import {readCpflPdf,cpflFieldsToDraft,findClientForCpfl,calculateCpflCharge,findDuplicateCpfl} from './cpfl-reader.js';
-import {getCustomerAccess,provisionCustomerAccess,revokeCustomerAccess,resendCustomerAccess} from './customer-access.js';
+import {getCustomerAccess,provisionCustomerAccess,revokeCustomerAccess,resendCustomerAccess,resetCustomerAccess} from './customer-access.js';
 
 const number=value=>new Intl.NumberFormat('pt-BR',{maximumFractionDigits:3}).format(Number(value)||0);
 const money=value=>new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(Number(value)||0);
@@ -52,15 +52,24 @@ async function renderClient(container,client,clients,company){
 }
 async function loadCustomerAccess(host,client,company){
   try{
-    const account=await getCustomerAccess(client.id),portalUrl=`${location.origin}${import.meta.env.BASE_URL}portal.html`;
+    const account=await getCustomerAccess(client.id),portalUrl=`${location.origin}${import.meta.env.BASE_URL}portal.html`,accountManagementUrl='https://console.firebase.google.com/project/tsp-energy/authentication/users';
     if(!account){
       host.innerHTML=`<div class="customer-access-grid"><div><span class="status-badge inactive">Não liberado</span><h3>Crie o acesso com o e-mail do cadastro</h3><p>${client.email?`O convite será enviado para <strong>${e(client.email)}</strong>.`:'Cadastre um e-mail válido e salve o cliente primeiro.'}</p></div><button class="button primary" id="enable-customer-access" ${client.email?'':'disabled'}>${icon('shield')} Liberar acesso</button></div><div id="customer-access-error" class="notice error" hidden></div>`;
       const button=host.querySelector('#enable-customer-access');if(button)button.onclick=async()=>{const error=host.querySelector('#customer-access-error');error.hidden=true;button.disabled=true;button.textContent='Criando acesso…';try{await provisionCustomerAccess(client,company);toast('Acesso criado. O cliente recebeu um e-mail para definir a senha.');await loadCustomerAccess(host,client,company);}catch(ex){error.textContent=ex.message;error.hidden=false;button.disabled=false;button.innerHTML=`${icon('shield')} Liberar acesso`;}};
       return;
     }
-    host.innerHTML=`<div class="customer-access-grid"><div><span class="status-badge ${account.active?'active':'inactive'}">${account.active?'Acesso ativo':'Acesso bloqueado'}</span><h3>${e(account.email)}</h3><p>Portal individual vinculado somente a este cliente.</p></div><div class="customer-access-actions"><button class="button secondary" id="copy-portal-link">Copiar link</button><button class="button secondary" id="resend-customer-access">Enviar senha</button><button class="button ${account.active?'danger-button':'primary'}" id="toggle-customer-access">${account.active?'Bloquear acesso':'Reativar acesso'}</button></div></div><div class="portal-link"><span>Link do cliente</span><code>${e(portalUrl)}</code></div><div id="customer-access-error" class="notice error" hidden></div>`;
+    const emailChanged=String(client.email||'').trim().toLowerCase()!==String(account.email||'').trim().toLowerCase();
+    host.innerHTML=`<div class="customer-access-grid"><div><span class="status-badge ${account.active?'active':'inactive'}">${account.active?'Acesso ativo':'Acesso bloqueado'}</span><h3>${e(account.email)}</h3><p>Portal individual vinculado somente a este cliente.</p></div><div class="customer-access-actions"><button class="button secondary" id="copy-portal-link">Copiar link</button><button class="button secondary" id="resend-customer-access">Enviar senha</button><a class="button secondary" href="${accountManagementUrl}" target="_blank" rel="noopener">Gerenciar contas</a><button class="button secondary" id="reset-customer-access">Redefinir acesso</button><button class="button ${account.active?'danger-button':'primary'}" id="toggle-customer-access">${account.active?'Bloquear acesso':'Reativar acesso'}</button></div></div><div class="portal-link"><span>Link do cliente</span><code>${e(portalUrl)}</code></div>${emailChanged?`<div class="notice warning">O cadastro agora usa <strong>${e(client.email)}</strong>. Remova a conta antiga <strong>${e(account.email)}</strong> em <strong>Gerenciar contas</strong> e clique em <strong>Redefinir acesso</strong>.</div>`:''}<div id="customer-access-error" class="notice error" hidden></div>`;
     host.querySelector('#copy-portal-link').onclick=async()=>{await navigator.clipboard.writeText(portalUrl);toast('Link da área do cliente copiado.');};
     host.querySelector('#resend-customer-access').onclick=async event=>{const button=event.currentTarget;button.disabled=true;try{await resendCustomerAccess(account);toast('E-mail para criar ou redefinir a senha enviado.');}catch(ex){showAccessError(host,ex);}finally{button.disabled=false;}};
+    host.querySelector('#reset-customer-access').onclick=async event=>{
+      const nextEmail=String(client.email||'').trim().toLowerCase();
+      if(!nextEmail)return showAccessError(host,new Error('Cadastre e salve o novo e-mail do cliente antes de redefinir o acesso.'));
+      if(nextEmail===String(account.email||'').trim().toLowerCase())return showAccessError(host,new Error('Altere e salve o e-mail do cliente antes de redefinir o acesso.'));
+      if(!confirm(`Confirma que a conta ${account.email} já foi excluída em Gerenciar contas? O vínculo antigo será removido e você poderá liberar o acesso para ${nextEmail}.`))return;
+      const button=event.currentTarget;button.disabled=true;button.textContent='Redefinindo…';
+      try{await resetCustomerAccess(account);toast('Vínculo antigo removido. Agora clique em Liberar acesso para o novo e-mail.');await loadCustomerAccess(host,client,company);}catch(ex){showAccessError(host,ex);button.disabled=false;button.textContent='Redefinir acesso';}
+    };
     host.querySelector('#toggle-customer-access').onclick=async event=>{const button=event.currentTarget;button.disabled=true;try{if(account.active){await revokeCustomerAccess(account);toast('Acesso do cliente bloqueado.');}else{await provisionCustomerAccess(client,company);toast('Acesso reativado e e-mail de senha enviado.');}await loadCustomerAccess(host,client,company);}catch(ex){showAccessError(host,ex);button.disabled=false;}};
   }catch(error){host.innerHTML=`<div class="notice error">${e(error.message)}</div>`;}
 }

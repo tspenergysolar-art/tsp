@@ -115,7 +115,7 @@ service cloud.firestore {
       allow list: if admin();
       allow create: if admin() && customerAccountOk(request.resource.data,uid) && request.resource.data.createdAt == request.time && request.resource.data.updatedAt == request.time && request.resource.data.createdBy == request.auth.uid && request.resource.data.updatedBy == request.auth.uid && exists(/databases/$(database)/documents/clients/$(request.resource.data.clientId));
       allow update: if admin() && customerAccountOk(request.resource.data,uid) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['active','clientName','updatedAt','updatedBy']) && request.resource.data.createdAt == resource.data.createdAt && request.resource.data.createdBy == resource.data.createdBy && request.resource.data.updatedAt == request.time && request.resource.data.updatedBy == request.auth.uid;
-      allow delete: if false;
+      allow delete: if admin();
     }
     match /portalSettings/company {
       allow read: if admin() || customer();
