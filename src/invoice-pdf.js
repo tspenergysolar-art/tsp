@@ -11,6 +11,13 @@ const clean=v=>String(v??'').replace(/[\u2013\u2014]/g,'-').replace(/[^\x20-\x7E
 function wrap(text,font,size,max){const words=clean(text).split(/\s+/),lines=[];let line='';for(const word of words){const next=line?`${line} ${word}`:word;if(font.widthOfTextAtSize(next,size)<=max)line=next;else{if(line)lines.push(line);line=word;}}if(line)lines.push(line);return lines;}
 function text(page,font,value,x,y,size=7,color=ink,options={}){page.drawText(clean(value),{x,y,size,font,color,...options});}
 function box(page,x,y,w,h,fill=rgb(1,1,1),stroke=border){page.drawRectangle({x,y,width:w,height:h,color:fill,borderColor:stroke,borderWidth:.6});}
+function gradient(page,x,y,w,h,start,end,steps=96){
+  const sw=w/steps;
+  for(let i=0;i<steps;i++){
+    const ratio=i/(steps-1),color=rgb(start[0]+(end[0]-start[0])*ratio,start[1]+(end[1]-start[1])*ratio,start[2]+(end[2]-start[2])*ratio);
+    page.drawRectangle({x:x+i*sw,y,width:sw+.25,height:h,color});
+  }
+}
 function center(page,font,value,x,y,w,size=7,color=ink){const v=clean(value),tw=font.widthOfTextAtSize(v,size);text(page,font,v,x+Math.max(3,(w-tw)/2),y,size,color);}
 function right(page,font,value,x,y,w,size=7,color=ink){const v=clean(value),tw=font.widthOfTextAtSize(v,size);text(page,font,v,x+w-tw-4,y,size,color);}
 function labelValue(page,bold,regular,label,value,x,y,w){text(page,bold,label.toUpperCase(),x,y,5.3,gray);wrap(value||'-',regular,7.2,w).slice(0,2).forEach((line,i)=>text(page,regular,line,x,y-10-i*8,7.2,ink));}
@@ -29,10 +36,18 @@ async function embedLogo(pdf,value){
 export async function createInvoicePdf(invoice,company){
   const pdf=await PDFDocument.create(),page=pdf.addPage(A4),regular=await pdf.embedFont(StandardFonts.Helvetica),bold=await pdf.embedFont(StandardFonts.HelveticaBold),{width}=page.getSize(),p=company.profile;
   const margin=28,content=width-margin*2;
-  page.drawRectangle({x:margin,y:766,width:300,height:55,color:blue});page.drawRectangle({x:margin+300,y:766,width:content-300,height:55,color:green});
+  gradient(page,margin,766,content,55,[.04,.33,.62],[.08,.43,.22]);
   let logo=null;try{logo=await embedLogo(pdf,company.logo);}catch{}
-  if(logo){const s=logo.scaleToFit(260,45);page.drawImage(logo,{x:margin+(300-s.width)/2,y:771+(45-s.height)/2,width:s.width,height:s.height});}else{text(page,bold,p.tradeName||'TSP ENERGY',margin+13,793,17,rgb(1,1,1));text(page,bold,'SOLAR & ENERGIA SUSTENTÁVEL',margin+13,779,7,rgb(1,.84,0));}
-  right(page,bold,'FATURA DE ENERGIA ELÉTRICA / REPASSE',margin+300,801,content-310,9,rgb(1,1,1));right(page,bold,'SOLAR',margin+300,787,content-310,9,rgb(1,1,1));right(page,regular,'Documento de Cobrança / Demonstrativo de Consumo',margin+300,775,content-310,6.2,rgb(.9,.96,.92));
+  let titleX=margin+13,titleWidth=260;
+  if(logo){const s=logo.scaleToFit(43,43);page.drawImage(logo,{x:margin+10,y:772+(43-s.height)/2,width:s.width,height:s.height});titleX=margin+61;titleWidth=212;}
+  const companyTitle=String(p.tradeName||'TSP ENERGY SOLAR').toUpperCase(),companySize=Math.min(16,titleWidth/Math.max(1,companyTitle.length)*1.55);
+  text(page,bold,companyTitle,titleX,801,companySize,rgb(1,1,1));
+  text(page,bold,'SOLAR & ENERGIA SUSTENTÁVEL',titleX,787,6.8,rgb(.8,.94,.28));
+  text(page,regular,'Documento de Cobrança / Demonstrativo de Consumo',titleX,775,5.4,rgb(.9,.96,.94));
+  const invoiceNumber=clean(invoice.id).replace(/[^A-Za-z0-9]/g,'').slice(-8).toUpperCase()||'-';
+  right(page,bold,'FATURA DE ENERGIA ELÉTRICA',margin+300,801,content-310,8.7,rgb(1,1,1));
+  right(page,bold,'REPASSE SOLAR',margin+300,787,content-310,8.7,rgb(.8,.94,.28));
+  right(page,regular,`Fatura ${invoiceNumber}`,margin+300,775,content-310,5.8,rgb(.9,.96,.94));
   const gap=8,leftW=276,rightX=margin+leftW+gap,rightW=content-leftW-gap;box(page,margin,698,leftW,59,pale,green);box(page,rightX,698,rightW,59,rgb(.96,.98,1),blue);
   text(page,bold,'DADOS DO CLIENTE / UNIDADE CONSUMIDORA',margin+8,744,6.2,green);page.drawLine({start:{x:margin+8,y:739},end:{x:margin+leftW-8,y:739},color:rgb(.4,.72,.46),thickness:1});
   text(page,bold,invoice.client.name,margin+8,727,7.2);text(page,regular,`CPF/CNPJ: ${invoice.client.taxId||'-'}`,margin+8,716,6.3);wrap(invoice.client.address||'-',regular,6.2,leftW-16).slice(0,2).forEach((line,i)=>text(page,regular,line,margin+8,706-i*8,6.2));
