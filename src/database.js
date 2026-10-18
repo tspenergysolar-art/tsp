@@ -3,8 +3,10 @@ import { auth, db } from './firebase.js';
 import { validateProfile, validImage } from './validation.js';
 import { validateClient, validateConsumption, digits } from './validation.js';
 import {validateBillingSettings} from './billing.js';
+import {publicCompanySettings} from './portal-settings.js';
 
 const companyRef = doc(db, 'settings', 'company');
+const portalCompanyRef = doc(db, 'portalSettings', 'company');
 export async function loadCompany() {
   const snap = await getDocFromServer(companyRef);
   return snap.exists() ? snap.data() : null;
@@ -24,6 +26,7 @@ export async function saveCompany(values, expectedRevision) {
     const payload = {schemaVersion:1, ...values, revision:revision+1, versionId, updatedBy:uid, updatedAt:serverTimestamp()};
     transaction.set(companyRef, payload);
     transaction.set(versionRef, payload);
+    transaction.set(portalCompanyRef, publicCompanySettings(payload,uid));
   });
   return {revision:expectedRevision+1, versionId};
 }

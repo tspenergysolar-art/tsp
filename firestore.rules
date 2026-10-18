@@ -5,6 +5,17 @@ service cloud.firestore {
       return request.auth != null &&
         get(/databases/$(database)/documents/admins/$(request.auth.uid)).data.active == true;
     }
+    function customer() {
+      return request.auth != null &&
+        exists(/databases/$(database)/documents/customerAccounts/$(request.auth.uid)) &&
+        get(/databases/$(database)/documents/customerAccounts/$(request.auth.uid)).data.active == true;
+    }
+    function customerClientId() {
+      return get(/databases/$(database)/documents/customerAccounts/$(request.auth.uid)).data.clientId;
+    }
+    function ownClient(clientId) {
+      return customer() && customerClientId() == clientId;
+    }
     function shortText(p, k) { return p[k] is string && p[k].size() <= 200; }
     function longText(p, k) { return p[k] is string && p[k].size() <= 3000; }
     function imageOk(v) {
@@ -78,10 +89,38 @@ service cloud.firestore {
     function shareOk(d,id) {
       return d.keys().hasAll(['schemaVersion','id','invoiceId','clientId','channel','sharedAt','sharedBy']) && d.keys().hasOnly(['schemaVersion','id','invoiceId','clientId','channel','sharedAt','sharedBy']) && d.schemaVersion == 1 && d.id == id && shortText(d,'invoiceId') && shortText(d,'clientId') && d.channel in ['whatsapp','email','copy'] && d.sharedAt == request.time && d.sharedBy == request.auth.uid;
     }
+    function customerAccountOk(d, uid) {
+      return d.keys().hasAll(['schemaVersion','uid','email','clientId','clientName','active','createdAt','createdBy','updatedAt','updatedBy']) &&
+        d.keys().hasOnly(['schemaVersion','uid','email','clientId','clientName','active','createdAt','createdBy','updatedAt','updatedBy']) &&
+        d.schemaVersion == 1 && d.uid == uid && shortText(d,'email') && d.email.size() > 3 && shortText(d,'clientId') && d.clientId.size() > 0 &&
+        shortText(d,'clientName') && d.clientName.size() > 0 && d.active is bool && d.createdBy is string && d.updatedBy is string;
+    }
+    function portalProfileOk(p) {
+      return p is map && p.keys().hasAll(['legalName','tradeName','cnpj','pixBeneficiary','pixKey','bank','bankDetails','phone','whatsapp','email','address','city','notices']) &&
+        p.keys().hasOnly(['legalName','tradeName','cnpj','pixBeneficiary','pixKey','bank','bankDetails','phone','whatsapp','email','address','city','notices']) &&
+        shortText(p,'legalName') && shortText(p,'tradeName') && shortText(p,'cnpj') && shortText(p,'pixBeneficiary') && shortText(p,'pixKey') && shortText(p,'bank') &&
+        longText(p,'bankDetails') && shortText(p,'phone') && shortText(p,'whatsapp') && shortText(p,'email') && longText(p,'address') && shortText(p,'city') && longText(p,'notices');
+    }
+    function portalSettingsOk(d) {
+      return d.keys().hasAll(['schemaVersion','profile','logo','updatedAt','updatedBy']) && d.keys().hasOnly(['schemaVersion','profile','logo','updatedAt','updatedBy']) &&
+        d.schemaVersion == 1 && portalProfileOk(d.profile) && imageOk(d.logo) && d.updatedAt == request.time && d.updatedBy == request.auth.uid;
+    }
     match /admins/{uid} {
       // O console provisiona administradores; o navegador nunca concede privilégios.
       allow get: if request.auth != null && request.auth.uid == uid;
       allow list, write: if false;
+    }
+    match /customerAccounts/{uid} {
+      allow get: if admin() || (request.auth != null && request.auth.uid == uid);
+      allow list: if admin();
+      allow create: if admin() && customerAccountOk(request.resource.data,uid) && request.resource.data.createdAt == request.time && request.resource.data.updatedAt == request.time && request.resource.data.createdBy == request.auth.uid && request.resource.data.updatedBy == request.auth.uid && exists(/databases/$(database)/documents/clients/$(request.resource.data.clientId));
+      allow update: if admin() && customerAccountOk(request.resource.data,uid) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['active','clientName','updatedAt','updatedBy']) && request.resource.data.createdAt == resource.data.createdAt && request.resource.data.createdBy == resource.data.createdBy && request.resource.data.updatedAt == request.time && request.resource.data.updatedBy == request.auth.uid;
+      allow delete: if false;
+    }
+    match /portalSettings/company {
+      allow read: if admin() || customer();
+      allow create, update: if admin() && portalSettingsOk(request.resource.data);
+      allow delete: if false;
     }
     match /settings/company {
       allow read: if admin();
@@ -96,7 +135,7 @@ service cloud.firestore {
       allow update, delete: if false;
     }
     match /clients/{id} {
-      allow read: if admin();
+      allow read: if admin() || ownClient(id);
       allow create: if admin() && clientOk(request.resource.data,id) && request.resource.data.revision == 1 && request.resource.data.createdAt == request.time && request.resource.data.createdBy == request.auth.uid &&
         !exists(/databases/$(database)/documents/clientVersions/$(request.resource.data.versionId)) && getAfter(/databases/$(database)/documents/clientVersions/$(request.resource.data.versionId)).data == request.resource.data;
       allow update: if admin() && clientOk(request.resource.data,id) && request.resource.data.revision == resource.data.revision + 1 && request.resource.data.createdAt == resource.data.createdAt && request.resource.data.createdBy == resource.data.createdBy &&
@@ -110,7 +149,7 @@ service cloud.firestore {
       allow update, delete: if false;
     }
     match /consumptions/{id} {
-      allow read: if admin();
+      allow read: if admin() || ownClient(resource.data.clientId);
       allow create: if admin() && consumptionOk(request.resource.data,id) && request.resource.data.revision == 1 && request.resource.data.createdAt == request.time && request.resource.data.createdBy == request.auth.uid &&
         exists(/databases/$(database)/documents/clients/$(request.resource.data.clientId)) &&
         !exists(/databases/$(database)/documents/consumptionVersions/$(request.resource.data.versionId)) && getAfter(/databases/$(database)/documents/consumptionVersions/$(request.resource.data.versionId)).data == request.resource.data;
@@ -137,13 +176,13 @@ service cloud.firestore {
       allow update, delete: if false;
     }
     match /invoices/{id} {
-      allow read: if admin();
+      allow read: if admin() || ownClient(resource.data.clientId);
       allow create: if admin() && invoiceOk(request.resource.data,id) && request.resource.data.status == 'issued' && request.resource.data.issuedAt == request.time && request.resource.data.issuedBy == request.auth.uid && request.resource.data.cancelledAt == null && request.resource.data.cancelledBy == '' && request.resource.data.cancellationReason == '' && exists(/databases/$(database)/documents/settingsVersions/$(request.resource.data.companyVersionId)) && exists(/databases/$(database)/documents/clients/$(request.resource.data.clientId)) && exists(/databases/$(database)/documents/consumptions/$(request.resource.data.consumptionId)) && get(/databases/$(database)/documents/consumptions/$(request.resource.data.consumptionId)).data.clientId == request.resource.data.clientId && get(/databases/$(database)/documents/consumptions/$(request.resource.data.consumptionId)).data.reference == request.resource.data.reference && (request.resource.data.supersedesInvoiceId == '' || exists(/databases/$(database)/documents/invoices/$(request.resource.data.supersedesInvoiceId)));
       allow update: if admin() && invoiceOk(request.resource.data,id) && resource.data.status == 'issued' && request.resource.data.status == 'cancelled' && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status','cancelledAt','cancelledBy','cancellationReason']) && request.resource.data.cancelledAt == request.time && request.resource.data.cancelledBy == request.auth.uid && request.resource.data.cancellationReason.size() > 0;
       allow delete: if admin();
     }
     match /payments/{id} {
-      allow read: if admin();
+      allow read: if admin() || ownClient(resource.data.clientId);
       allow create: if admin() && paymentOk(request.resource.data,id) && request.resource.data.status == 'active' && request.resource.data.createdAt == request.time && request.resource.data.createdBy == request.auth.uid && request.resource.data.cancelledAt == null && request.resource.data.cancelledBy == '' && request.resource.data.cancellationReason == '' && exists(/databases/$(database)/documents/invoices/$(request.resource.data.invoiceId)) && get(/databases/$(database)/documents/invoices/$(request.resource.data.invoiceId)).data.status == 'issued' && get(/databases/$(database)/documents/invoices/$(request.resource.data.invoiceId)).data.clientId == request.resource.data.clientId;
       allow update: if admin() && paymentOk(request.resource.data,id) && resource.data.status == 'active' && request.resource.data.status == 'cancelled' && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status','cancelledAt','cancelledBy','cancellationReason']) && request.resource.data.cancelledAt == request.time && request.resource.data.cancelledBy == request.auth.uid && request.resource.data.cancellationReason.size() > 0;
       allow delete: if admin();

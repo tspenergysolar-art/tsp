@@ -1,6 +1,6 @@
 # TSP Energy Solar
 
-Sistema administrativo em português brasileiro. As **etapas 1 a 8** estão implementadas: login, configurações, clientes, cadastro mensal, planilhas, faturamento PDF, compartilhamento, pagamentos e dashboard. A partir da versão 0.10.0, o site também é um aplicativo web instalável (PWA) para Android, iPhone, iPad e computador.
+Sistema de faturamento em português brasileiro. As **etapas 1 a 8** estão implementadas: login administrativo, configurações, clientes, cadastro mensal, planilhas, faturamento PDF, compartilhamento, pagamentos e dashboard. A versão 0.18.0 acrescenta uma área protegida em `portal.html`, na qual cada cliente consulta somente suas faturas, pagamentos, pendências e consumos. A partir da versão 0.10.0, o site também é um aplicativo web instalável (PWA) para Android, iPhone, iPad e computador.
 
 ## Leitura local de contas CPFL
 
@@ -51,6 +51,8 @@ O service worker armazena somente os arquivos estáticos da própria origem. Cha
 - `billingSettings/current` e `billingSettingsVersions/{uuid}`: tarifas e alíquotas atuais com histórico imutável.
 - `invoices/{uuid}`: snapshot imutável de cada emissão. A segunda via usa os dados originais.
 - `payments/{uuid}`: pagamento manual; cancelamento mantém histórico e auditoria. O contas a receber oferece resumo financeiro, faixas de atraso, filtros, extrato por cliente e exportação XLSX/CSV.
+- `customerAccounts/{uid}`: vínculo entre a conta autenticada e um único cliente, com bloqueio imediato pelo administrador.
+- `portalSettings/company`: dados empresariais estritamente necessários para mostrar a marca e gerar a segunda via no portal, sem os campos internos da configuração administrativa.
 - `shares/{uuid}`: confirmação manual de compartilhamento concluído.
 - Revisão esperada evita sobrescrever silenciosamente alterações simultâneas.
 - Faturas corrigidas continuam disponíveis como “Substituídas”, mas deixam de compor faturamento, pendências e indicadores para evitar cobrança duplicada.

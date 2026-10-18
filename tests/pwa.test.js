@@ -12,7 +12,12 @@ test('manifesto permite instalação e contém ícones para Android e iPhone',as
 
 test('service worker guarda somente arquivos locais e não intercepta Firebase',async()=>{
   const source=await readFile(new URL('../public/sw.js',import.meta.url),'utf8');
-  assert.match(source,/url\.origin!==self\.location\.origin/);assert.match(source,/request\.method!==['"]GET['"]/);assert.match(source,/configuracao\.html/);
+  assert.match(source,/url\.origin!==self\.location\.origin/);assert.match(source,/request\.method!==['"]GET['"]/);assert.match(source,/configuracao\.html/);assert.match(source,/portal\.html/);assert.match(source,/cache\.put\(request,copy\)/);
+});
+
+test('área do cliente é uma entrada separada do painel administrativo',async()=>{
+  const source=await readFile(new URL('../portal.html',import.meta.url),'utf8');
+  assert.match(source,/Área do cliente/);assert.match(source,/src\/portal\.js/);assert.match(source,/noindex,nofollow/);
 });
 
 test('marca do sistema utiliza o logotipo configurado',()=>{
