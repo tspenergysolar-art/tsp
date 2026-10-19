@@ -1,0 +1,24 @@
+{
+  "id": "./portal-cliente",
+  "name": "TSP Energy Solar - Área do Cliente",
+  "short_name": "TSP Cliente",
+  "description": "Consulte faturas, pagamentos e consumos da TSP Energy Solar.",
+  "lang": "pt-BR",
+  "dir": "ltr",
+  "start_url": "./portal.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f2f5f2",
+  "theme_color": "#123f37",
+  "orientation": "any",
+  "categories": ["business", "finance", "utilities"],
+  "icons": [
+    {"src": "./icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any"},
+    {"src": "./icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any"},
+    {"src": "./icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable"}
+  ],
+  "shortcuts": [
+    {"name": "Minhas faturas", "short_name": "Faturas", "url": "./portal.html#faturas", "icons": [{"src": "./icon-192.png", "sizes": "192x192"}]},
+    {"name": "Meus consumos", "short_name": "Consumos", "url": "./portal.html#consumos", "icons": [{"src": "./icon-192.png", "sizes": "192x192"}]}
+  ]
+}
