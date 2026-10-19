@@ -9,12 +9,7 @@ export async function getCustomerAccess(clientId){
   return result.docs.map(item=>item.data())[0]||null;
 }
 
-function temporaryPassword(){
-  const bytes=crypto.getRandomValues(new Uint8Array(18));
-  return `Tsp!${Array.from(bytes,b=>b.toString(36)).join('').slice(0,24)}9a`;
-}
-
-export async function provisionCustomerAccess(client,company){
+export async function provisionCustomerAccess(client,company,initialPassword=''){
   if(!navigator.onLine)throw new Error('Sem conexão. O acesso não foi criado.');
   const adminUid=auth.currentUser?.uid,email=String(client.email||'').trim().toLowerCase();
   if(!adminUid)throw new Error('Entre novamente para continuar.');
@@ -26,18 +21,19 @@ export async function provisionCustomerAccess(client,company){
     await sendPasswordResetEmail(auth,email);
     return {...existing,active:true,email};
   }
+  const password=String(initialPassword||'');
+  if(password.length<6)throw new Error('A senha inicial precisa ter pelo menos 6 caracteres.');
   const secondary=initializeApp(firebaseConfig,`customer-${crypto.randomUUID()}`),secondaryAuth=getAuth(secondary);
   secondaryAuth.languageCode='pt-BR';
   if(isEmulator)connectAuthEmulator(secondaryAuth,'http://127.0.0.1:9099',{disableWarnings:true});
   let created;
   try{
-    created=await createUserWithEmailAndPassword(secondaryAuth,email,temporaryPassword());
+    created=await createUserWithEmailAndPassword(secondaryAuth,email,password);
     const payload={schemaVersion:1,uid:created.user.uid,email,clientId:client.id,clientName:client.name,active:true,createdAt:serverTimestamp(),createdBy:adminUid,updatedAt:serverTimestamp(),updatedBy:adminUid};
     const batch=writeBatch(db);
     batch.set(doc(db,'customerAccounts',created.user.uid),payload);
     batch.set(doc(db,'portalSettings','company'),publicCompanySettings(company,adminUid));
     await batch.commit();
-    await sendPasswordResetEmail(secondaryAuth,email);
     return {...payload,createdAt:null,updatedAt:null};
   }catch(error){
     if(created?.user)try{await deleteUser(created.user);}catch{}

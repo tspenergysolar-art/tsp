@@ -1,4 +1,4 @@
-const CACHE_NAME='tsp-energy-v0.18.1';
+const CACHE_NAME='tsp-energy-v0.18.2';
 const BASE=new URL('./',self.location.href);
 const SHELL=['./','./portal.html','./configuracao.html','./guia.css','./sun.svg','./manifest.webmanifest','./icon-192.png','./icon-512.png','./icon-maskable-512.png','./apple-touch-icon.png'].map(path=>new URL(path,BASE).href);
 
