@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="robots" content="noindex,nofollow">
+  <meta name="theme-color" content="#123f37">
+  <title>Pagamento PIX | TSP Energy Solar</title>
+  <link rel="icon" href="./sun.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="./pagar.css">
+</head>
+<body>
+  <main class="payment-shell">
+    <section class="payment-card">
+      <header><img src="./icon-192.png" alt=""><div><span>TSP ENERGY SOLAR</span><strong>Pagamento via PIX</strong></div></header>
+      <div id="invalid" class="notice error" hidden>Este link de pagamento está incompleto. Solicite uma nova fatura à TSP Energy Solar.</div>
+      <div id="payment" hidden>
+        <p class="eyebrow">CONFIRA ANTES DE PAGAR</p>
+        <h1 id="amount">R$ 0,00</h1>
+        <dl><div><dt>Beneficiário</dt><dd id="beneficiary">-</dd></div><div><dt>Vencimento</dt><dd id="due">-</dd></div></dl>
+        <button id="open-bank" class="primary" type="button">Abrir aplicativo do banco</button>
+        <button id="copy-pix" class="secondary" type="button">Copiar código PIX</button>
+        <p id="feedback" class="feedback" role="status"></p>
+        <details><summary>Ver código PIX Copia e Cola</summary><code id="pix-code"></code></details>
+        <div class="notice"><strong>Importante</strong><br>Seu banco sempre solicitará a confirmação final. Se a fatura estiver vencida, peça o valor atualizado antes de pagar.</div>
+      </div>
+    </section>
+  </main>
+  <script src="./pagar.js" defer></script>
+</body>
+</html>

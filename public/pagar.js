@@ -1,0 +1,11 @@
+const params=new URLSearchParams(location.search),payload=params.get('pix')||'',due=params.get('vencimento')||'';
+const byId=id=>document.getElementById(id),formatMoney=value=>new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(value),formatDate=value=>/^\d{4}-\d{2}-\d{2}$/.test(value)?value.split('-').reverse().join('/'):'-';
+const crc16=value=>{let crc=0xffff;for(let index=0;index<value.length;index++){crc^=value.charCodeAt(index)<<8;for(let bit=0;bit<8;bit++)crc=(crc&0x8000)?(crc<<1)^0x1021:crc<<1;crc&=0xffff;}return crc.toString(16).toUpperCase().padStart(4,'0');};
+const readTlv=value=>{const fields={};let index=0;while(index+4<=value.length){const id=value.slice(index,index+2),size=Number(value.slice(index+2,index+4));if(!/^\d{2}$/.test(id)||!Number.isInteger(size)||index+4+size>value.length)return null;fields[id]=value.slice(index+4,index+4+size);index+=4+size;}return index===value.length?fields:null;};
+const fields=payload.length<=600&&/^000201/.test(payload)&&crc16(payload.slice(0,-4))===payload.slice(-4).toUpperCase()?readTlv(payload):null,merchant=fields?Object.entries(fields).filter(([id])=>Number(id)>=26&&Number(id)<=51).map(([,value])=>readTlv(value)).find(value=>value?.['00']==='BR.GOV.BCB.PIX'):null,amount=Number(fields?.['54']),beneficiary=fields?.['59']||'',valid=Boolean(fields&&merchant&&Number.isFinite(amount)&&amount>0&&beneficiary);
+if(!valid)byId('invalid').hidden=false;else{
+  byId('payment').hidden=false;byId('amount').textContent=formatMoney(amount);byId('beneficiary').textContent=beneficiary;byId('due').textContent=formatDate(due);byId('pix-code').textContent=payload;
+  const copy=async()=>{try{await navigator.clipboard.writeText(payload);byId('feedback').textContent='Código PIX copiado. Cole na opção PIX Copia e Cola do seu banco.';}catch{byId('feedback').textContent='Não foi possível copiar automaticamente. Abra o código acima e copie manualmente.';}};
+  byId('copy-pix').onclick=copy;
+  byId('open-bank').onclick=async()=>{await copy();byId('feedback').textContent='Código copiado. Tentando abrir um aplicativo compatível; se não abrir, entre no seu banco e use PIX Copia e Cola.';const host=location.hostname||'tspenergysolar-art.github.io';location.href=`pix://${host}?qr=${encodeURIComponent(payload)}`;};
+}
