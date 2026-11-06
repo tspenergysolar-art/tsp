@@ -36,6 +36,8 @@ test('marca do sistema utiliza o logotipo configurado',()=>{
 test('cadastro mensal inclui o componente do leitor CPFL',async()=>{
   const source=await readFile(new URL('../src/clients.js',import.meta.url),'utf8');
   assert.match(source,/function cpflReaderMarkup\(\)/);assert.match(source,/id="cpfl-drop-zone"/);assert.match(source,/id="cpfl-file"/);
+  assert.match(source,/function consumptionClientGateMarkup\(clients, selected\)/);assert.match(source,/id="consumption-client-gate"/);assert.match(source,/Nenhum cliente é escolhido automaticamente/);
+  assert.match(source,/mismatchedClient/);assert.match(source,/Cliente travado para este lançamento/);
   assert.match(source,/input\[name="saleTariff"\]\[type="hidden"\]/);
   assert.match(source,/input\[name="solarCreditDiscount"\]\[type="hidden"\]/);
 });
