@@ -648,8 +648,12 @@ async function renderConsumption(
   if (!selected) return;
   bindCpflReader(container, clients, selected, records, billing);
   const form = container.querySelector("#consumption-form"),
-    rowsHost = container.querySelector("#operation-rows"),
-    calc = () => {
+    rowsHost = container.querySelector("#operation-rows");
+  form.querySelector('input[name="saleTariff"][type="hidden"]')?.remove();
+  form
+    .querySelector('input[name="solarCreditDiscount"][type="hidden"]')
+    ?.remove();
+  const calc = () => {
       const tariff = Number(form.elements.saleTariff.value || 0),
         demand = Number(form.elements.demandCharge.value || 0),
         discount = Number(form.elements.solarCreditDiscount.value || 0),

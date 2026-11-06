@@ -36,6 +36,8 @@ test('marca do sistema utiliza o logotipo configurado',()=>{
 test('cadastro mensal inclui o componente do leitor CPFL',async()=>{
   const source=await readFile(new URL('../src/clients.js',import.meta.url),'utf8');
   assert.match(source,/function cpflReaderMarkup\(\)/);assert.match(source,/id="cpfl-drop-zone"/);assert.match(source,/id="cpfl-file"/);
+  assert.match(source,/input\[name="saleTariff"\]\[type="hidden"\]/);
+  assert.match(source,/input\[name="solarCreditDiscount"\]\[type="hidden"\]/);
 });
 
 test('página de pagamento oferece abertura do banco e PIX Copia e Cola',async()=>{
