@@ -7,5 +7,5 @@ if(!valid)byId('invalid').hidden=false;else{
   byId('payment').hidden=false;byId('amount').textContent=formatMoney(amount);byId('beneficiary').textContent=beneficiary;byId('due').textContent=formatDate(due);byId('pix-code').textContent=payload;
   const copy=async()=>{try{await navigator.clipboard.writeText(payload);byId('feedback').textContent='Código PIX copiado. Cole na opção PIX Copia e Cola do seu banco.';}catch{byId('feedback').textContent='Não foi possível copiar automaticamente. Abra o código acima e copie manualmente.';}};
   byId('copy-pix').onclick=copy;
-  byId('open-bank').onclick=async()=>{await copy();byId('feedback').textContent='Código copiado. Tentando abrir um aplicativo compatível; se não abrir, entre no seu banco e use PIX Copia e Cola.';const host=location.hostname||'tspenergysolar-art.github.io';location.href=`pix://${host}?qr=${encodeURIComponent(payload)}`;};
+  byId('open-bank').onclick=()=>{const host=location.hostname||'tspenergysolar-art.github.io';byId('feedback').textContent='Tentando abrir um aplicativo bancário compatível…';location.href=`pix://${host}?qr=${encodeURIComponent(payload)}`;setTimeout(()=>{if(document.visibilityState==='visible')byId('feedback').textContent='Nenhum aplicativo compatível respondeu. Use o botão “Copiar código PIX” e cole o código no aplicativo do seu banco.';},1400);};
 }

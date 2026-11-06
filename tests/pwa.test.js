@@ -45,4 +45,6 @@ test('cadastro mensal inclui o componente do leitor CPFL',async()=>{
 test('página de pagamento oferece abertura do banco e PIX Copia e Cola',async()=>{
   const html=await readFile(new URL('../public/pagar.html',import.meta.url),'utf8'),script=await readFile(new URL('../public/pagar.js',import.meta.url),'utf8'),worker=await readFile(new URL('../public/sw.js',import.meta.url),'utf8');
   assert.match(html,/Abrir aplicativo do banco/);assert.match(html,/Copiar código PIX/);assert.match(script,/pix:\/\//);assert.match(script,/navigator\.clipboard\.writeText/);assert.match(script,/crc16\(payload\.slice/);assert.match(script,/BR\.GOV\.BCB\.PIX/);assert.match(worker,/pagar\.html/);
+  assert.doesNotMatch(script,/open-bank'\)\.onclick=async\(\)=>\{await copy/);
+  assert.match(script,/open-bank'\)\.onclick=\(\)=>\{const host=/);
 });
