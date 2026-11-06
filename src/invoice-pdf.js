@@ -95,6 +95,30 @@ function labelValue(page, bold, valueFont, label, value, x, y, w, maxLines = 2) 
       text(page, valueFont, line, x, y - 11 - i * 9, 8.2, ink),
     );
 }
+
+export function operationTableLayout(itemCount) {
+  const rows = Math.max(1, Number(itemCount) || 1),
+    tableTop = 480,
+    headerHeight = 26,
+    totalTop = 332,
+    availableHeight = tableTop - headerHeight - totalTop,
+    rowHeight = Math.min(14, availableHeight / rows),
+    textSize = Math.min(5.7, Math.max(3.2, rowHeight - 1.9)),
+    detailSize = Math.min(5.2, Math.max(3, rowHeight - 2)),
+    tariffSize = Math.min(4.8, detailSize),
+    valueSize = Math.min(5.4, textSize),
+    baselineOffset = Math.max(1.2, (rowHeight - textSize) / 2 + 0.5);
+  return {
+    rowHeight,
+    textSize,
+    detailSize,
+    tariffSize,
+    valueSize,
+    baselineOffset,
+    availableHeight,
+    totalTop,
+  };
+}
 function dataUrlBytes(value) {
   if (!value) return null;
   return Uint8Array.from(atob(value.split(",")[1]), (c) => c.charCodeAt(0));
@@ -432,9 +456,9 @@ export async function createInvoicePdf(invoice, company) {
         (item) =>
           Math.abs(Number(item.value) || 0) > 0.0001 ||
           ["SUBTOTAL", "IP_CIP"].includes(item.code),
-      )
-      .slice(0, 10),
-    rowHeight = 14;
+      ),
+    layout = operationTableLayout(items.length),
+    { rowHeight } = layout;
   items.forEach((item, index) => {
     const y = tableTop - headerHeight - (index + 1) * rowHeight;
     page.drawLine({
@@ -455,10 +479,10 @@ export async function createInvoicePdf(invoice, company) {
     text(
       page,
       summary ? bold : regular,
-      clipped(item.description, regular, 5.7, widths[0] - 14),
+      clipped(item.description, regular, layout.textSize, widths[0] - 14),
       starts[0] + 7,
-      y + 4.3,
-      5.7,
+      y + layout.baselineOffset,
+      layout.textSize,
       item.code === "DESCONTO_TSP" ? red : summary ? green : ink,
     );
     if (operation) {
@@ -467,9 +491,9 @@ export async function createInvoicePdf(invoice, company) {
         regular,
         item.unit || "-",
         starts[1],
-        y + 4.3,
+        y + layout.baselineOffset,
         widths[1],
-        5.2,
+        layout.detailSize,
         ink,
       );
       right(
@@ -477,9 +501,9 @@ export async function createInvoicePdf(invoice, company) {
         regular,
         Number(item.quantity) > 0 ? fixed(item.quantity, 4) : "-",
         starts[2] + 3,
-        y + 4.3,
+        y + layout.baselineOffset,
         widths[2] - 7,
-        5.2,
+        layout.detailSize,
         ink,
       );
       right(
@@ -487,9 +511,9 @@ export async function createInvoicePdf(invoice, company) {
         regular,
         Number(item.aneelTariff) > 0 ? fixed(item.aneelTariff, 8) : "-",
         starts[3] + 3,
-        y + 4.3,
+        y + layout.baselineOffset,
         widths[3] - 7,
-        4.8,
+        layout.tariffSize,
         ink,
       );
       right(
@@ -497,9 +521,9 @@ export async function createInvoicePdf(invoice, company) {
         regular,
         Number(item.taxedTariff) > 0 ? fixed(item.taxedTariff, 8) : "-",
         starts[4] + 3,
-        y + 4.3,
+        y + layout.baselineOffset,
         widths[4] - 7,
-        4.8,
+        layout.tariffSize,
         ink,
       );
     }
@@ -508,9 +532,9 @@ export async function createInvoicePdf(invoice, company) {
       bold,
       brl(item.value),
       starts[5] + 3,
-      y + 4.3,
+      y + layout.baselineOffset,
       widths[5] - 7,
-      5.4,
+      layout.valueSize,
       Number(item.value) < 0 ? red : ink,
     );
   });
