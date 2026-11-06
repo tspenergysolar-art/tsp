@@ -189,12 +189,14 @@ test("usa tarifa fixa no Consumo Ponta, demanda fixa e desconto em reais", () =>
     ],
   };
   const result = calculateInvoice(monthly, client, emptyBillingSettings());
-  assert.equal(result.operationBase, 1006.09);
+  assert.equal(result.operationBase, 5301.55);
   assert.equal(result.adjustmentPercent, 0);
   assert.equal(result.adjustmentValue, -100);
-  assert.equal(result.total, 926.51);
+  assert.equal(result.total, 5221.97);
   assert.equal(result.items[0].code, "CONSUMO_PONTA");
-  assert.equal(result.items[0].value, 278.17);
+  assert.equal(result.items[0].description, "Consumo Ponta + Fora Ponta [kWh]");
+  assert.equal(result.items[0].quantity, 5159.3546);
+  assert.equal(result.items[0].value, 4741.21);
   assert.equal(result.items[0].taxedTariff, 0.918954);
   assert.equal(
     result.items.find((item) => item.code === "DEMANDA").value,
@@ -206,12 +208,12 @@ test("usa tarifa fixa no Consumo Ponta, demanda fixa e desconto em reais", () =>
   );
   assert.equal(
     result.items.find((item) => item.code === "SUBTOTAL").value,
-    906.09,
+    5201.55,
   );
   assert.equal(result.items.at(-1).value, 20.42);
   assert.equal(result.sourceInvoiceTotal, 1572.85);
   assert.equal(result.sourceSubtotal, 1552.43);
-  assert.equal(result.formulaVersion, 4);
+  assert.equal(result.formulaVersion, 5);
 });
 test("desconto em reais não reduz a IP-CIP abaixo de zero", () => {
   const monthly = {

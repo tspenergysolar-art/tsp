@@ -50,6 +50,8 @@ export function calculateInvoice(consumption, client, settings, override = "") {
       classify = (description) =>
         /^Consumo Ponta\b.*TUSD/i.test(description)
           ? "CONSUMO_PONTA"
+          : /^Consumo Fora Ponta\b.*TUSD/i.test(description)
+            ? "CONSUMO_FORA_PONTA"
           : /^Adicional Band/i.test(description)
             ? "BANDEIRA"
             : /^Uso Sist Distr Gera/i.test(description)
@@ -62,8 +64,10 @@ export function calculateInvoice(consumption, client, settings, override = "") {
     const allOperations = consumption.operations.filter((item) =>
         String(item?.description || "").trim(),
       ),
-      consumptionSource = allOperations.find(
-        (item) => classify(String(item.description)) === "CONSUMO_PONTA",
+      consumptionSources = allOperations.filter((item) =>
+        ["CONSUMO_PONTA", "CONSUMO_FORA_PONTA"].includes(
+          classify(String(item.description)),
+        ),
       ),
       demandSource = allOperations.find(
         (item) => classify(String(item.description)) === "DEMANDA",
@@ -78,54 +82,69 @@ export function calculateInvoice(consumption, client, settings, override = "") {
             publicLighting,
       ),
       sourceSubtotal = round(Math.max(0, sourceTotal - publicLighting)),
-      consumptionOriginal = round(consumptionSource?.value || 0),
-      consumptionAdjusted = round(
-        Number(consumptionSource?.quantity || 0) * saleTariff,
+      consumptionQuantity = Number(
+        consumptionSources
+          .reduce((sum, item) => sum + Number(item.quantity || 0), 0)
+          .toFixed(4),
       ),
-      demandOriginal = round(demandSource?.value || 0),
-      adjustedBase = round(
-        sourceSubtotal -
-          consumptionOriginal +
-          consumptionAdjusted -
-          demandOriginal +
-          demandCharge,
-      );
-    const operations = allOperations
-      .filter(
+      consumptionAdjusted = round(
+        consumptionQuantity * saleTariff,
+      ),
+      selectedOperations = allOperations.filter(
         (item) =>
           item?.selected === true && String(item.description || "").trim(),
+      ),
+      energyVisible = selectedOperations.some((item) =>
+        ["CONSUMO_PONTA", "CONSUMO_FORA_PONTA"].includes(
+          classify(String(item.description)),
+        ),
+      );
+    const operations = selectedOperations
+      .filter(
+        (item) =>
+          !["CONSUMO_PONTA", "CONSUMO_FORA_PONTA"].includes(
+            classify(String(item.description)),
+          ),
       )
       .map((item, index) => {
         const description = String(item.description).trim(),
           code = classify(description) || `CPFL_OP_${index + 1}`,
-          quantity = Number(item.quantity || 0),
-          energy = code === "CONSUMO_PONTA";
+          quantity = Number(item.quantity || 0);
         return {
           code,
           description,
           quantity,
           unit: String(item.unit || ""),
           aneelTariff: Number(item.aneelTariff || 0),
-          taxedTariff: energy ? saleTariff : Number(item.taxedTariff || 0),
-          rate: energy ? saleTariff : Number(item.taxedTariff || 0),
+          taxedTariff: Number(item.taxedTariff || 0),
+          rate: Number(item.taxedTariff || 0),
           value:
-            code === "CONSUMO_PONTA"
-              ? consumptionAdjusted
-              : code === "DEMANDA"
+            code === "DEMANDA"
                 ? round(demandCharge)
                 : round(item.value),
         };
       });
+    if (energyVisible && consumptionSources.length)
+      operations.unshift({
+        code: "CONSUMO_PONTA",
+        description: "Consumo Ponta + Fora Ponta [kWh]",
+        quantity: consumptionQuantity,
+        unit: "kWh",
+        aneelTariff: 0,
+        taxedTariff: saleTariff,
+        rate: saleTariff,
+        value: consumptionAdjusted,
+      });
     if (!operations.length)
       throw new Error("Selecione pelo menos uma operação da conta CPFL.");
-    const operationBase = adjustedBase,
+    const operationBase = round(
+        operations.reduce((sum, item) => sum + Number(item.value || 0), 0),
+      ),
       solarDiscount = round(
         Math.abs(Number(consumption.solarCreditDiscount || 0)),
       ),
       subtotal = Math.max(0, round(operationBase - solarDiscount)),
-      hiddenBase = round(
-        adjustedBase - operations.reduce((sum, item) => sum + item.value, 0),
-      );
+      hiddenBase = 0;
     const items = [
       ...operations,
       ...(solarDiscount > 0
@@ -176,7 +195,7 @@ export function calculateInvoice(consumption, client, settings, override = "") {
       sourceInvoiceTotal: sourceTotal,
       sourceSubtotal,
       hiddenBase,
-      formulaVersion: 4,
+      formulaVersion: 5,
     };
   }
   const monthlyRate = Number(consumption.saleTariff || 0);

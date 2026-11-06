@@ -81,7 +81,7 @@ service cloud.firestore {
         d.schemaVersion == 1 && d.id == id && d.status in ['issued','cancelled'] && d.reference.matches('^[0-9]{4}-(0[1-9]|1[0-2])$') && shortText(d,'issueDate') && shortText(d,'dueDate') &&
         shortText(d,'companyVersionId') && shortText(d,'clientId') && shortText(d,'consumptionId') && d.client is map && d.consumption is map && d.billingSettings is map &&
         d.items is list && d.items.size() <= 20 && d.taxes is list && d.taxes.size() <= 10 && d.history is list && d.history.size() <= 6 &&
-        d.calculatedTotal is number && d.calculatedTotal >= 0 && d.total is number && d.total >= 0 && d.totalManualOverride is bool && d.formulaVersion in [1,2,3,4] &&
+        d.calculatedTotal is number && d.calculatedTotal >= 0 && d.total is number && d.total >= 0 && d.totalManualOverride is bool && d.formulaVersion in [1,2,3,4,5] &&
         shortText(d,'line') && shortText(d,'barcode') && longText(d,'notes') && shortText(d,'supersedesInvoiceId') && shortText(d,'cancelledBy') && longText(d,'cancellationReason');
     }
     function paymentOk(d,id) {
