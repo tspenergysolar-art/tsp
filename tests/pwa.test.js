@@ -32,3 +32,8 @@ test('marca do sistema utiliza o logotipo configurado',()=>{
   const markup=brand(true,'data:image/png;base64,AAAA');
   assert.match(markup,/custom-logo/);assert.match(markup,/Logotipo TSP Energy Solar/);assert.match(markup,/data:image\/png;base64,AAAA/);
 });
+
+test('cadastro mensal inclui o componente do leitor CPFL',async()=>{
+  const source=await readFile(new URL('../src/clients.js',import.meta.url),'utf8');
+  assert.match(source,/function cpflReaderMarkup\(\)/);assert.match(source,/id="cpfl-drop-zone"/);assert.match(source,/id="cpfl-file"/);
+});
