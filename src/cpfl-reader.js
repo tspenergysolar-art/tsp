@@ -197,9 +197,9 @@ const first = (pages, patterns, transform = clean) => {
 
 const defaultOperationPatterns = [
   /^Consumo Ponta\b.*TUSD/i,
-  /^Adicional Band(?:eira)?\s+\S+\s+Ponta\b/i,
+  /^Adicional Band(?:eira)?\s+\S+\s+(?:Ponta|FPonta)\b/i,
   /^Uso Sist Distr Gera[çc][ãa]o\b/i,
-  /^Consumo Reativo Exc Ponta\b/i,
+  /^Consumo Reativo Exc (?:Ponta|Fora Ponta)\b/i,
   /^Demanda \[kW\]\s*-\s*TUSD\b/i,
 ];
 const operationSelected = (description) =>

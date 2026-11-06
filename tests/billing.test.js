@@ -138,7 +138,7 @@ test("usa tarifa fixa no Consumo Ponta, demanda fixa e desconto em reais", () =>
     saleTariff: 0.918954,
     demandCharge: 208.76,
     sourceInvoiceTotal: 1572.85,
-    solarCreditDiscount: 100,
+    solarCreditDiscount: 1026.46,
     adjustmentPercent: 0,
     publicLighting: 20.42,
     operations: [
@@ -166,6 +166,13 @@ test("usa tarifa fixa no Consumo Ponta, demanda fixa e desconto em reais", () =>
         selected: true,
       },
       {
+        description: "Adicional Band Amarela FPonta SET/26",
+        unit: "kWh",
+        quantity: 0,
+        value: 115.96,
+        selected: true,
+      },
+      {
         description: "Uso Sist Distr Geração [kW] SET/26",
         unit: "kW",
         quantity: 45,
@@ -180,19 +187,33 @@ test("usa tarifa fixa no Consumo Ponta, demanda fixa e desconto em reais", () =>
         selected: true,
       },
       {
+        description: "Consumo Reativo Exc Fora Ponta SET/26",
+        unit: "kWh",
+        quantity: 634.3086,
+        value: 233.16,
+        selected: true,
+      },
+      {
         description: "Demanda [kW] - TUSD SET/26",
         unit: "kW",
         quantity: 30,
         value: 515.06,
         selected: true,
       },
+      {
+        description: "Outros descontos",
+        unit: "R$",
+        quantity: 1,
+        value: -769.71,
+        selected: true,
+      },
     ],
   };
   const result = calculateInvoice(monthly, client, emptyBillingSettings());
-  assert.equal(result.operationBase, 5301.55);
+  assert.equal(result.operationBase, 4880.96);
   assert.equal(result.adjustmentPercent, 0);
-  assert.equal(result.adjustmentValue, -100);
-  assert.equal(result.total, 5221.97);
+  assert.equal(result.adjustmentValue, -1026.46);
+  assert.equal(result.total, 3854.5);
   assert.equal(result.items[0].code, "CONSUMO_PONTA");
   assert.equal(result.items[0].description, "Consumo Ponta + Fora Ponta [kWh]");
   assert.equal(result.items[0].quantity, 5159.3546);
@@ -204,18 +225,19 @@ test("usa tarifa fixa no Consumo Ponta, demanda fixa e desconto em reais", () =>
   );
   assert.equal(
     result.items.find((item) => item.code === "DESCONTO_TSP").value,
-    -100,
+    -1026.46,
   );
   assert.equal(
     result.items.find((item) => item.code === "SUBTOTAL").value,
-    5201.55,
+    3854.5,
   );
   assert.equal(result.items.at(-1).value, 20.42);
+  assert.equal(result.items.at(-1).affectsTotal, false);
   assert.equal(result.sourceInvoiceTotal, 1572.85);
   assert.equal(result.sourceSubtotal, 1552.43);
-  assert.equal(result.formulaVersion, 5);
+  assert.equal(result.formulaVersion, 6);
 });
-test("desconto em reais não reduz a IP-CIP abaixo de zero", () => {
+test("desconto em reais não transforma o total em valor negativo", () => {
   const monthly = {
     ...consumption,
     saleTariff: 0.918954,
@@ -235,5 +257,5 @@ test("desconto em reais não reduz a IP-CIP abaixo de zero", () => {
   };
   const result = calculateInvoice(monthly, client, emptyBillingSettings());
   assert.equal(result.items.find((item) => item.code === "SUBTOTAL").value, 0);
-  assert.equal(result.total, 20);
+  assert.equal(result.total, 0);
 });

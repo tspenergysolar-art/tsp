@@ -439,12 +439,12 @@ test("fatura exige origens válidas, permite cancelamento auditado e exclusão p
   );
   await assertSucceeds(deleteDoc(doc(db, "invoices", invoice.id)));
 });
-test("fatura aceita a fórmula atual versão 5", async () => {
+test("fatura aceita a fórmula atual versão 6", async () => {
   const db = admin();
   await persist(db);
   await persistClient(db);
   await persistConsumption(db);
-  const invoice = { ...invoiceData(), formulaVersion: 5 };
+  const invoice = { ...invoiceData(), formulaVersion: 6 };
   await assertSucceeds(setDoc(doc(db, "invoices", invoice.id), invoice));
 });
 test("fatura não pode apontar para consumo inexistente", async () => {

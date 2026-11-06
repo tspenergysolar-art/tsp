@@ -56,8 +56,8 @@ export function calculateInvoice(consumption, client, settings, override = "") {
             ? "BANDEIRA"
             : /^Uso Sist Distr Gera/i.test(description)
               ? "SIST_DISTR_GERACAO"
-              : /^Consumo Reativo Exc Ponta/i.test(description)
-                ? "REATIVO_PONTA"
+              : /^Consumo Reativo Exc (?:Ponta|Fora Ponta)/i.test(description)
+                ? "REATIVO"
                 : /^Demanda \[kW\]/i.test(description)
                   ? "DEMANDA"
                   : "";
@@ -169,14 +169,15 @@ export function calculateInvoice(consumption, client, settings, override = "") {
       },
       {
         code: "IP_CIP",
-        description: `Contribuição Custeio IP-CIP${consumption.reference ? ` ${String(consumption.reference).slice(5, 7)}/${String(consumption.reference).slice(2, 4)}` : ""}`,
+        description: `Contribuição Custeio IP-CIP (informativo - não incluído)${consumption.reference ? ` ${String(consumption.reference).slice(5, 7)}/${String(consumption.reference).slice(2, 4)}` : ""}`,
         quantity: 1,
         unit: "R$",
         rate: publicLighting,
         value: publicLighting,
+        affectsTotal: false,
       },
     ];
-    const calculatedTotal = Math.max(0, round(subtotal + publicLighting));
+    const calculatedTotal = Math.max(0, round(subtotal));
     const hasOverride = String(override).trim() !== "",
       total = hasOverride ? round(Number(override)) : calculatedTotal;
     if (!Number.isFinite(total) || total < 0)
@@ -195,7 +196,7 @@ export function calculateInvoice(consumption, client, settings, override = "") {
       sourceInvoiceTotal: sourceTotal,
       sourceSubtotal,
       hiddenBase,
-      formulaVersion: 5,
+      formulaVersion: 6,
     };
   }
   const monthlyRate = Number(consumption.saleTariff || 0);
