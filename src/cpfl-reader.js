@@ -31,9 +31,9 @@ export function extractCpflOperationsFromPages(rawPages){
     const match=line.match(operationLine);if(!match)continue;
     const description=match[1],unit=match[2],values=match[3].split(/\s+/).map(brNumber).filter(value=>value!=='').map(Number);
     if(!values.length)continue;
-    const flag=/^(?:Adicional Band|Cred Adc Band)/i.test(description),quantity=flag?0:Math.abs(values[0]),value=flag?values[0]:values[3];
+    const flag=/^(?:Adicional Band|Cred Adc Band)/i.test(description),quantity=flag?0:Math.abs(values[0]),aneelTariff=flag?0:values[1],taxedTariff=flag?0:values[2],value=flag?values[0]:values[3];
     if(!Number.isFinite(value))continue;
-    operations.push({description,unit,quantity:Number.isFinite(quantity)?quantity:0,value,selected:operationSelected(description)});
+    operations.push({description,unit,quantity:Number.isFinite(quantity)?quantity:0,aneelTariff:Number.isFinite(aneelTariff)?aneelTariff:0,taxedTariff:Number.isFinite(taxedTariff)?taxedTariff:0,value,selected:operationSelected(description)});
   }
   const pageOne=String(rawPages[0]||''),summary={
     distributorSubtotal:Number(brNumber(pageOne.match(/^Subtotal\s+([\d.,-]+)/mi)?.[1])||0),
@@ -100,7 +100,7 @@ export function extractCpflFieldsFromPages(rawPages){
   return found;
 }
 
-export function cpflFieldsToDraft(fields,operations=[],adjustmentPercent=10,summary={}){const draft={};for(const item of fields)if(item.selected&&item.target&&item.value!=='')draft[item.target]=item.value;if(!draft.multiplier)draft.multiplier=1;draft.previousReading=0;draft.currentReading=0;draft.operations=operations.map(item=>({description:clean(item.description).slice(0,200),unit:clean(item.unit).slice(0,10),quantity:Number(item.quantity)||0,value:Number(item.value)||0,selected:item.selected===true}));draft.adjustmentPercent=Number(adjustmentPercent);draft.publicLighting=Number(summary.publicLighting||draft.publicLighting||0);return draft;}
+export function cpflFieldsToDraft(fields,operations=[],adjustmentPercent=10,summary={}){const draft={};for(const item of fields)if(item.selected&&item.target&&item.value!=='')draft[item.target]=item.value;if(!draft.multiplier)draft.multiplier=1;draft.previousReading=0;draft.currentReading=0;draft.operations=operations.map(item=>({description:clean(item.description).slice(0,200),unit:clean(item.unit).slice(0,10),quantity:Number(item.quantity)||0,aneelTariff:Number(item.aneelTariff)||0,taxedTariff:Number(item.taxedTariff)||0,value:Number(item.value)||0,selected:item.selected===true}));draft.adjustmentPercent=Number(adjustmentPercent);draft.publicLighting=Number(summary.publicLighting||draft.publicLighting||0);return draft;}
 export function findClientForCpfl(fields,clients){const installation=digits(fields.find(f=>f.key==='installationNumber')?.value);if(!installation)return null;const matches=clients.filter(client=>digits(client.installationNumber)===installation);return matches.length===1?matches[0]:null;}
 export function calculateCpflCharge(consumption,tariff){const kwh=Number(consumption),rate=Number(tariff);return Number.isFinite(kwh)&&kwh>=0&&Number.isFinite(rate)&&rate>=0?Number((kwh*rate).toFixed(2)):null;}
 export function findDuplicateCpfl(records,clientId,referenceValue){return records.find(item=>item.clientId===clientId&&item.reference===referenceValue)||null;}

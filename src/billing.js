@@ -25,7 +25,7 @@ export function validateBillingSettings(value){
 export function calculateInvoice(consumption,client,settings,override=''){
   validateBillingSettings(settings);
   if(Array.isArray(consumption.operations)&&consumption.operations.length){
-    const operations=consumption.operations.filter(item=>item?.selected===true&&String(item.description||'').trim()).map((item,index)=>({code:`CPFL_OP_${index+1}`,description:String(item.description).trim(),quantity:Number(item.quantity||0),unit:String(item.unit||''),rate:0,value:round(item.value)}));
+    const operations=consumption.operations.filter(item=>item?.selected===true&&String(item.description||'').trim()).map((item,index)=>({code:`CPFL_OP_${index+1}`,description:String(item.description).trim(),quantity:Number(item.quantity||0),unit:String(item.unit||''),aneelTariff:Number(item.aneelTariff||0),taxedTariff:Number(item.taxedTariff||0),rate:Number(item.taxedTariff||0),value:round(item.value)}));
     const operationBase=round(operations.reduce((sum,item)=>sum+item.value,0)),adjustmentPercent=Number.isFinite(Number(consumption.adjustmentPercent))?Number(consumption.adjustmentPercent):Number(client.adjustmentPercent||10),adjustmentValue=round(operationBase*adjustmentPercent/100),publicLighting=round(consumption.publicLighting);
     const items=[...operations,{code:'AJUSTE_TSP',description:`Ajuste TSP (${round(adjustmentPercent,3)}%)`,quantity:1,unit:'%',rate:adjustmentPercent,value:adjustmentValue},{code:'IP_CIP',description:'Contribuição Custeio IP-CIP',quantity:1,unit:'R$',rate:publicLighting,value:publicLighting}];
     const calculatedTotal=Math.max(0,round(operationBase+adjustmentValue+publicLighting)),hasOverride=String(override).trim()!=='',total=hasOverride?round(Number(override)):calculatedTotal;

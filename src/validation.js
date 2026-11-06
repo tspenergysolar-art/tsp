@@ -68,7 +68,7 @@ export function normalizeConsumption(raw) {
   const textKeys=['reference','previousReadDate','currentReadDate','nextReadDate','notes','dueDate'];
   const result={};
   for(const key of consumptionFields){
-    if(key==='operations'){result.operations=Array.isArray(raw.operations)?raw.operations.map(item=>({description:String(item?.description||'').trim(),unit:String(item?.unit||'').trim(),quantity:Number(item?.quantity||0),value:Number(item?.value||0),selected:item?.selected===true})):[];continue;}
+    if(key==='operations'){result.operations=Array.isArray(raw.operations)?raw.operations.map(item=>({description:String(item?.description||'').trim(),unit:String(item?.unit||'').trim(),quantity:Number(item?.quantity||0),aneelTariff:Number(item?.aneelTariff||0),taxedTariff:Number(item?.taxedTariff||0),value:Number(item?.value||0),selected:item?.selected===true})):[];continue;}
     result[key]=textKeys.includes(key)?String(raw[key]??'').trim():Number(raw[key]??0);
   }
   return result;
@@ -87,7 +87,7 @@ export function validateConsumption(value) {
   for(const key of numeric) if(!Number.isFinite(value[key])||value[key]<0) throw new Error('Os valores do consumo não podem ser negativos.');
   if(!Number.isFinite(value.adjustmentPercent)||value.adjustmentPercent< -100||value.adjustmentPercent>1000) throw new Error('O ajuste TSP deve ficar entre -100% e 1.000%.');
   if(!Array.isArray(value.operations)||value.operations.length>30)throw new Error('A lista de operações possui itens demais.');
-  for(const item of value.operations){if(!item.description||item.description.length>200||item.unit.length>10||!Number.isFinite(item.quantity)||item.quantity<0||!Number.isFinite(item.value)||Math.abs(item.value)>10000000||typeof item.selected!=='boolean')throw new Error('Confira as operações importadas da conta CPFL.');}
+  for(const item of value.operations){if(!item.description||item.description.length>200||item.unit.length>10||![item.quantity,item.aneelTariff,item.taxedTariff].every(number=>Number.isFinite(number)&&number>=0)||!Number.isFinite(item.value)||Math.abs(item.value)>10000000||typeof item.selected!=='boolean')throw new Error('Confira as operações importadas da conta CPFL.');}
   if(value.operations.length&&!value.operations.some(item=>item.selected))throw new Error('Selecione pelo menos uma operação para a cobrança.');
   if(value.multiplier<=0) throw new Error('O fator multiplicador deve ser maior que zero.');
   if(value.notes.length>3000) throw new Error('As observações excedem o limite permitido.');
