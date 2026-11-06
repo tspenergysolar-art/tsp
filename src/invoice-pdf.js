@@ -87,10 +87,10 @@ function center(page, font, value, x, y, w, size = 7, color = ink) {
     color,
   );
 }
-function labelValue(page, bold, valueFont, label, value, x, y, w) {
+function labelValue(page, bold, valueFont, label, value, x, y, w, maxLines = 2) {
   text(page, bold, label.toUpperCase(), x, y, 6.2, gray);
   wrap(value || "-", valueFont, 8.2, w)
-    .slice(0, 2)
+    .slice(0, maxLines)
     .forEach((line, i) =>
       text(page, valueFont, line, x, y - 11 - i * 9, 8.2, ink),
     );
@@ -250,8 +250,9 @@ export async function createInvoicePdf(invoice, company) {
     "Endereço",
     invoice.client.address || "-",
     410,
-    714,
+    728,
     150,
+    3,
   );
   box(page, margin, 637, content, 45, pale);
   text(page, bold, "DADOS DA EMPRESA GERADORA", 35, 668, 7.2, green);
