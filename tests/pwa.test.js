@@ -49,3 +49,11 @@ test('página de pagamento oferece abertura do banco e PIX Copia e Cola',async()
   assert.doesNotMatch(script,/open-bank'\)\.onclick=async\(\)=>\{await copy/);
   assert.match(script,/open-bank'\)\.onclick=\(\)=>\{const host=/);
 });
+
+test('emissão em lote também gera e baixa os PDFs',async()=>{
+  const source=await readFile(new URL('../src/invoices.js',import.meta.url),'utf8');
+  assert.match(source,/const createAndDownload=async invoice/);
+  assert.match(source,/await createAndDownload\(invoice\)/);
+  assert.match(source,/Gerando \$\{completed\+1\} de \$\{chosen\.length\}/);
+  assert.match(source,/PDF gerado e baixado com sucesso/);
+});
