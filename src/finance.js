@@ -15,6 +15,23 @@ export function supersededInvoiceIds(invoices){
     .map(invoice=>invoice.supersedesInvoiceId));
 }
 
+const timestampMillis=value=>typeof value?.toMillis==='function'?value.toMillis():Number(value?.seconds||0)*1000+Number(value?.nanoseconds||0)/1000000;
+
+export function activeInvoiceByConsumption(invoices){
+  const superseded=supersededInvoiceIds(invoices),result=new Map();
+  for(const invoice of invoices){
+    if(invoice.status==='cancelled'||superseded.has(invoice.id)||result.has(invoice.consumptionId))continue;
+    result.set(invoice.consumptionId,invoice);
+  }
+  return result;
+}
+
+export function invoiceNeedsRefresh(consumption,invoice){
+  if(!invoice)return true;
+  const consumptionTime=timestampMillis(consumption?.updatedAt),invoiceTime=timestampMillis(invoice?.issuedAt);
+  return consumptionTime>0&&invoiceTime>0&&consumptionTime>invoiceTime;
+}
+
 export function financialRows(invoices,payments,today){
   const superseded=supersededInvoiceIds(invoices),todayTime=isoTime(today);
   return invoices.map(invoice=>{
