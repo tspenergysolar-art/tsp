@@ -8,10 +8,42 @@ const mapping={reference:'reference',dueDate:'dueDate',previousReadDate:'previou
 
 const clean=s=>String(s||'').replace(/\u00a0/g,' ').replace(/[ \t]+/g,' ').trim();
 const digits=s=>String(s||'').replace(/\D/g,'');
-const brNumber=value=>{const raw=String(value||'').replace(/[^\d.,-]/g,'').trim();if(!raw)return'';const normalized=raw.includes(',')?raw.replace(/\./g,'').replace(',','.'):raw;const parsed=Number(normalized);return Number.isFinite(parsed)?String(parsed):'';};
+const brNumber=value=>{let raw=String(value||'').replace(/[^\d.,-]/g,'').trim();if(!raw)return'';const negative=raw.endsWith('-')||raw.startsWith('-');raw=raw.replace(/-/g,'');const normalized=raw.includes(',')?raw.replace(/\./g,'').replace(',','.'):raw;const parsed=Number(normalized)*(negative?-1:1);return Number.isFinite(parsed)?String(parsed):'';};
 const isoDate=value=>{const match=String(value||'').match(/(\d{1,2})[\/.-](\d{1,2})[\/.-](\d{2,4})/);if(!match)return'';let [,d,m,y]=match;if(y.length===2)y=`20${y}`;return `${y.padStart(4,'0')}-${m.padStart(2,'0')}-${d.padStart(2,'0')}`;};
 const reference=value=>{const text=String(value||'').toLowerCase(),year=value=>value.length===2?`20${value}`:value;const numeric=text.match(/(0?[1-9]|1[0-2])[\/.-]((?:20)?\d{2})/);if(numeric)return `${year(numeric[2])}-${numeric[1].padStart(2,'0')}`;const months={jan:'01',fev:'02',mar:'03',abr:'04',mai:'05',jun:'06',jul:'07',ago:'08',set:'09',out:'10',nov:'11',dez:'12'};const named=text.match(/(jan(?:eiro)?|fev(?:ereiro)?|mar(?:ço|co)?|abr(?:il)?|mai(?:o)?|jun(?:ho)?|jul(?:ho)?|ago(?:sto)?|set(?:embro)?|out(?:ubro)?|nov(?:embro)?|dez(?:embro)?)[\s\/.-]*((?:20)?\d{2})/);return named?`${year(named[2])}-${months[named[1].slice(0,3).replace('ç','c')]}`:'';};
 const first=(pages,patterns,transform=clean)=>{for(let p=0;p<pages.length;p++){for(const pattern of patterns){const match=pages[p].match(pattern);if(match?.[1]){const value=transform(match[1]);if(value!=='')return{value,page:p+1};}}}return{value:'',page:null};};
+
+const defaultOperationPatterns=[
+  /^Cons Ponta\s*-\s*TE\b/i,
+  /^Cons FPonta TE\b/i,
+  /^Adicional Band(?:eira)?\s+\S+\s+Ponta\b/i,
+  /^Uso Sist Distr Gera[çc][ãa]o\b/i,
+  /^Consumo Reativo Exc Ponta\b/i,
+  /^Demanda \[kW\]\s*-\s*TUSD\b/i,
+];
+const operationSelected=description=>defaultOperationPatterns.some(pattern=>pattern.test(description));
+const operationLine=/^(.+?\b[A-Z]{3}\/\d{2,4})\s+(kWh|kW)\s+(.+)$/i;
+const operationStarts=/^(?:Consumo Ponta|Consumo Fora Ponta|Cons Ponta|Cons FPonta|Adicional Band|Uso Sist Distr|Consumo Reativo|Demanda \[kW\]|Energia Atv|Energ Atv|Cred Adc Band)/i;
+export function extractCpflOperationsFromPages(rawPages){
+  const lines=rawPages.flatMap(page=>String(page||'').split(/\r?\n/).map(clean)).filter(Boolean),operations=[];
+  for(const line of lines){
+    if(!operationStarts.test(line))continue;
+    const match=line.match(operationLine);if(!match)continue;
+    const description=match[1],unit=match[2],values=match[3].split(/\s+/).map(brNumber).filter(value=>value!=='').map(Number);
+    if(!values.length)continue;
+    const flag=/^(?:Adicional Band|Cred Adc Band)/i.test(description),quantity=flag?0:Math.abs(values[0]),value=flag?values[0]:values[3];
+    if(!Number.isFinite(value))continue;
+    operations.push({description,unit,quantity:Number.isFinite(quantity)?quantity:0,value,selected:operationSelected(description)});
+  }
+  const pageOne=String(rawPages[0]||''),summary={
+    distributorSubtotal:Number(brNumber(pageOne.match(/^Subtotal\s+([\d.,-]+)/mi)?.[1])||0),
+    distributorTotal:Number(brNumber(pageOne.match(/^Total Distribuidora\s+([\d.,-]+)/mi)?.[1])||0),
+    publicLighting:Number(brNumber(pageOne.match(/^Contribui[çc][ãa]o Custeio IP-CIP[^\n]*?([\d.,-]+)\s*$/mi)?.[1])||0),
+    distributorInvoiceTotal:Number(brNumber(pageOne.match(/^Total a Pagar\s+([\d.,-]+)/mi)?.[1])||0),
+  };
+  const billed=operations.filter(item=>/^Consumo (?:Ponta|Fora Ponta).*TUSD/i.test(item.description)).reduce((sum,item)=>sum+item.quantity,0);
+  return{operations,summary,measuredConsumption:Number(billed.toFixed(4))};
+}
 
 function field(key,result,status='identified'){return{key,label:labels[key],category:categoryOf[key]||'other',categoryLabel:categories[categoryOf[key]||'other'],value:result.value,unit:units[key]||'',page:result.page,status:result.value?status:'unidentified',selected:Boolean(result.value&&mapping[key]),target:mapping[key]||''};}
 export function extractCpflFieldsFromPages(rawPages){
@@ -51,6 +83,8 @@ export function extractCpflFieldsFromPages(rawPages){
   found.push(field('tariffFlag',first(pages,[/(?:BANDEIRA TARIF[ÁA]RIA)[^\n]{0,50}?(?:R\$\s*)?([\d.,]+)/i],brNumber),'review'));
   const summary=first(pages,[/\b([A-Z]{3}\/20\d{2}\s+\d{1,2}\/\d{1,2}\/\d{4}\s+R\$\s*[\d.,]+)/i],clean);if(summary.value){const match=summary.value.match(/([A-Z]{3}\/20\d{2})\s+(\d{1,2}\/\d{1,2}\/\d{4})\s+R\$\s*([\d.,]+)/i);replace('reference',{value:reference(match?.[1]),page:summary.page});replace('dueDate',{value:isoDate(match?.[2]),page:summary.page});replace('totalAmount',{value:brNumber(match?.[3]),page:summary.page});}
   const uc=first(pages,[/^([A-ZÀ-Ú][A-ZÀ-Ú\s]{5,80})\s+(\d{1,3}(?:\.\d{3}){2,3}-\d{2})\s*$/m],value=>clean(value));if(uc.value){const line=pages[uc.page-1].match(/^([A-ZÀ-Ú][A-ZÀ-Ú\s]{5,80})\s+(\d{1,3}(?:\.\d{3}){2,3}-\d{2})\s*$/m);replace('holderName',{value:clean(line?.[1]),page:uc.page});replace('installationNumber',{value:clean(line?.[2]),page:uc.page});}
+  const newUc=first(pages,[/^(\d{1,3}(?:\.\d{3}){3}-\d{2})\s+Pr[óo]xima Leitura\b/mi],clean);replace('installationNumber',newUc,'identified',true);
+  const danfHolder=first(pages,[/^(?!COMPANHIA\b|DANF\b|FISCAL\b)([A-ZÀ-Ú][A-ZÀ-Ú ]{5,80})\n(?:R(?:UA)?|AV(?:ENIDA)?|PRA[ÇC]A|ESTRADA)\b/mi],clean);replace('holderName',danfHolder,'identified',true);
   const readingDates=first(pages,[/^(\d{1,2}\/\d{1,2}\/\d{4}\s+\d{1,2}\/\d{1,2}\/\d{4}\s+\d{1,3})\s*$/m],clean);if(readingDates.value){const match=readingDates.value.match(/(\d{1,2}\/\d{1,2}\/\d{4})\s+(\d{1,2}\/\d{1,2}\/\d{4})\s+(\d{1,3})/);replace('currentReadDate',{value:isoDate(match?.[1]),page:readingDates.page});replace('previousReadDate',{value:isoDate(match?.[2]),page:readingDates.page});replace('billingDays',{value:brNumber(match?.[3]),page:readingDates.page});}
   const meter=first(pages,[/^(\d{6,12}\s+Energia Ativa-kWh\s+\S+\s+[\d.,]+\s+[\d.,]+\s+[\d.,]+\s+[\d.,]+)/mi],clean);if(meter.value){const match=meter.value.match(/^(\d{6,12})\s+Energia Ativa-kWh\s+\S+\s+([\d.,]+)\s+([\d.,]+)\s+([\d.,]+)\s+([\d.,]+)/i);replace('previousReading',{value:brNumber(match?.[2]),page:meter.page});replace('currentReading',{value:brNumber(match?.[3]),page:meter.page});replace('multiplier',{value:brNumber(match?.[4]),page:meter.page});replace('billedConsumption',{value:brNumber(match?.[5]),page:meter.page});}
   const tusd=first(pages,[/(Consumo Uso Sistema[^\n]*?\b[A-Z]{3}\/\d{2,4}\s+kWh\s+[\d.,]+\s+[\d.,]+\s+[\d.,]+)/i],clean);if(tusd.value){const match=tusd.value.match(/\bkWh\s+([\d.,]+)\s+([\d.,]+)\s+([\d.,]+)/i);replace('billedConsumption',{value:brNumber(match?.[1]),page:tusd.page},'identified',true);replace('tusdConsumption',{value:brNumber(match?.[1]),page:tusd.page},'review',true);replace('tusdRate',{value:brNumber(match?.[3]),page:tusd.page},'review',true);}
@@ -60,12 +94,13 @@ export function extractCpflFieldsFromPages(rawPages){
   const compactBarcode=first(pages,[/\b(\d{44,48})\b/],digits);replace('barcode',compactBarcode);
   const address=first(pages,[/^((?:RUA|AV(?:ENIDA)?|PCA|PRA[ÇC]A|ESTRADA)\s+[^\n]+\n[^\n]+\n\d{5}-\d{3}[^\n]*)/mi],value=>clean(value).replace(/\n/g,', '));replace('address',address);
   const taxValues=[/\bICMS\s+[\d.,]+\s+[\d.,]+\s+([\d.,]+)/i,/\bPIS\/PASEP\s+[\d.,]+\s+[\d.,]+\s+([\d.,]+)/i,/\bCOFINS\s+[\d.,]+\s+[\d.,]+\s+([\d.,]+)/i].map(pattern=>brNumber(all.match(pattern)?.[1])).filter(Boolean).map(Number);if(taxValues.length)replace('taxes',{value:String(Number(taxValues.reduce((sum,value)=>sum+value,0).toFixed(2))),page:1},'review',true);
+  const operationData=extractCpflOperationsFromPages(pages);if(operationData.measuredConsumption>0)replace('billedConsumption',{value:String(operationData.measuredConsumption),page:1},'identified',true);if(operationData.summary.publicLighting>0)replace('publicLighting',{value:String(operationData.summary.publicLighting),page:1},'identified',true);
   const billed=Number(found.find(f=>f.key==='billedConsumption')?.value),days=Number(found.find(f=>f.key==='billingDays')?.value);found.push(field('dailyAverage',{value:billed>0&&days>0?String(Number((billed/days).toFixed(3))):'',page:null},'review'));
   const historyMatches=[...all.matchAll(/\b(JAN|FEV|MAR|ABR|MAI|JUN|JUL|AGO|SET|OUT|NOV|DEZ)\s+(\d{2})\s+\D*?(\d{1,6})\s+\d{1,3}(?=\s|$)/gmi)].slice(0,12).map(m=>`${m[1].toUpperCase()}/${m[2]}: ${brNumber(m[3])} kWh`);found.push(field('history',{value:historyMatches.join(' | '),page:historyMatches.length?1:null},'review'));
   return found;
 }
 
-export function cpflFieldsToDraft(fields){const draft={};for(const item of fields)if(item.selected&&item.target&&item.value!=='')draft[item.target]=item.value;if(!draft.multiplier)draft.multiplier=1;return draft;}
+export function cpflFieldsToDraft(fields,operations=[],adjustmentPercent=10,summary={}){const draft={};for(const item of fields)if(item.selected&&item.target&&item.value!=='')draft[item.target]=item.value;if(!draft.multiplier)draft.multiplier=1;draft.previousReading=0;draft.currentReading=0;draft.operations=operations.map(item=>({description:clean(item.description).slice(0,200),unit:clean(item.unit).slice(0,10),quantity:Number(item.quantity)||0,value:Number(item.value)||0,selected:item.selected===true}));draft.adjustmentPercent=Number(adjustmentPercent);draft.publicLighting=Number(summary.publicLighting||draft.publicLighting||0);return draft;}
 export function findClientForCpfl(fields,clients){const installation=digits(fields.find(f=>f.key==='installationNumber')?.value);if(!installation)return null;const matches=clients.filter(client=>digits(client.installationNumber)===installation);return matches.length===1?matches[0]:null;}
 export function calculateCpflCharge(consumption,tariff){const kwh=Number(consumption),rate=Number(tariff);return Number.isFinite(kwh)&&kwh>=0&&Number.isFinite(rate)&&rate>=0?Number((kwh*rate).toFixed(2)):null;}
 export function findDuplicateCpfl(records,clientId,referenceValue){return records.find(item=>item.clientId===clientId&&item.reference===referenceValue)||null;}
@@ -80,7 +115,7 @@ export async function readCpflPdf(file,onProgress=()=>{}){
     pdf=await pdfjs.getDocument({data:buffer,isEvalSupported:false}).promise;if(pdf.numPages>12)throw new Error('O PDF possui mais de 12 páginas. Divida o arquivo antes de continuar.');
     const pages=[];for(let index=1;index<=pdf.numPages;index++){onProgress(`Lendo texto da página ${index} de ${pdf.numPages}…`,10+index/pdf.numPages*35);const page=await pdf.getPage(index),content=await page.getTextContent();pages.push(linesFromItems(content.items));page.cleanup();}
     let method='Texto do PDF';if(pages.join('').replace(/\W/g,'').length<80){method='OCR local';onProgress('O PDF parece digitalizado. Preparando OCR local…',48);const {createWorker}=await import('tesseract.js');const base=new URL(`${import.meta.env.BASE_URL}ocr/`,location.origin).href;worker=await createWorker('por',1,{workerPath:`${base}worker.min.js`,corePath:`${base}tesseract-core-lstm.wasm.js`,langPath:base,cacheMethod:'none',logger:message=>{if(message.status==='recognizing text')onProgress(`Reconhecendo texto: ${Math.round(message.progress*100)}%`,50+message.progress*45);}});pages.length=0;for(let index=1;index<=pdf.numPages;index++){const page=await pdf.getPage(index),viewport=page.getViewport({scale:1.7}),canvas=document.createElement('canvas');canvas.width=Math.ceil(viewport.width);canvas.height=Math.ceil(viewport.height);await page.render({canvasContext:canvas.getContext('2d',{alpha:false}),viewport}).promise;const result=await worker.recognize(canvas);pages.push(clean(result.data.text).replace(/\s*\n\s*/g,'\n'));canvas.width=1;canvas.height=1;page.cleanup();}}
-    onProgress('Organizando os campos encontrados…',97);const fields=extractCpflFieldsFromPages(pages);return{fields,method,pageCount:pdf.numPages,fileName:file.name};
+    onProgress('Organizando os campos encontrados…',97);const fields=extractCpflFieldsFromPages(pages),operationData=extractCpflOperationsFromPages(pages);return{fields,...operationData,method,pageCount:pdf.numPages,fileName:file.name};
   }catch(error){if(error?.name==='PasswordException')throw new Error('O PDF está protegido por senha. Use uma cópia sem proteção.');if(/InvalidPDF|MissingPDF|UnexpectedResponse/i.test(error?.name||''))throw new Error('O PDF está corrompido ou não pôde ser lido.');throw error;}finally{if(worker&&typeof worker.terminate==='function')await worker.terminate();if(pdf&&typeof pdf.destroy==='function')await pdf.destroy();buffer=null;}
 }
 

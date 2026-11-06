@@ -1,6 +1,6 @@
 # TSP Energy Solar
 
-Sistema de faturamento em português brasileiro. As **etapas 1 a 8** estão implementadas: login administrativo, configurações, clientes, cadastro mensal, planilhas, faturamento PDF, compartilhamento, pagamentos e dashboard. A versão 0.18.3 oferece instalação própria da área do cliente pelo botão do cabeçalho, abrindo diretamente o portal após instalar. O acesso inicial usa a senha editável definida pelo administrador e não grava essa senha no Firestore. A área protegida em `portal.html` permite que cada cliente consulte somente suas faturas, pagamentos, pendências e consumos. A partir da versão 0.10.0, o painel administrativo também é um aplicativo web instalável (PWA) para Android, iPhone, iPad e computador.
+Sistema de faturamento em português brasileiro. As **etapas 1 a 8** estão implementadas: login administrativo, configurações, clientes, cadastro mensal, planilhas, faturamento PDF, compartilhamento, pagamentos e dashboard. A versão 0.19.0 lê o novo DANF3E da CPFL, pré-seleciona seis operações, usa ajuste TSP percentual (10% como padrão editável), mantém a IP-CIP fora do reajuste e gera a fatura A4 no modelo verde com uma única coluna financeira. A área protegida em `portal.html` permite que cada cliente consulte somente suas faturas, pagamentos, pendências e consumos. A partir da versão 0.10.0, o painel administrativo e a área do cliente também podem ser instalados como aplicativo web (PWA).
 
 ## Leitura local de contas CPFL
 

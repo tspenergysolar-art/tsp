@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {extractCpflFieldsFromPages,cpflFieldsToDraft,findClientForCpfl,calculateCpflCharge,findDuplicateCpfl} from '../src/cpfl-reader.js';
+import {extractCpflFieldsFromPages,extractCpflOperationsFromPages,cpflFieldsToDraft,findClientForCpfl,calculateCpflCharge,findDuplicateCpfl} from '../src/cpfl-reader.js';
 
 const field=(fields,key)=>fields.find(item=>item.key===key);
 
@@ -34,7 +34,14 @@ TOTAL A PAGAR: R$ 205,85`]);
 test('preenche somente campos selecionados e mantém fator padrão',()=>{
   const fields=extractCpflFieldsFromPages(['REFERÊNCIA: 10/2026\nCONSUMO FATURADO: 300 kWh\nENERGIA INJETADA: 120 kWh']);
   field(fields,'injectedEnergy').selected=false;
-  assert.deepEqual(cpflFieldsToDraft(fields),{reference:'2026-10',measuredConsumption:'300',multiplier:1});
+  assert.deepEqual(cpflFieldsToDraft(fields),{reference:'2026-10',measuredConsumption:'300',multiplier:1,previousReading:0,currentReading:0,operations:[],adjustmentPercent:10,publicLighting:0});
+});
+
+test('novo DANF3E extrai operações, sinais, consumo total e IP-CIP',()=>{
+  const page=`THIAGO SANCHEZ PEREIRA\nR PARA 293\n5.398.354.035-00 Próxima Leitura 31/10/2026\n30/09/2026 31/08/2026 30\nSET/2026 12/11/2026 R$ 1.572,85\nConsumo Ponta [KWh] - TUSD SET/26 kWh 302,6992 1,35157000 1,71196356 518,21 518,21 18,00 93,28 2,85 12,96\nConsumo Fora Ponta [KWh]-TUSD SET/26 kWh 4.856,6554 0,16416000 0,20793117 1.009,85 1.009,85 18,00 181,77 5,55 25,26\nCons Ponta - TE SET/26 kWh 302,6992 0,43188000 0,54704473 165,59 165,59 18,00 29,81 0,91 4,14\nCons FPonta TE SET/26 kWh 4.856,6554 0,27282000 0,34556086 1.678,27 1.678,27 18,00 302,09 9,22 41,97\nAdicional Band Amarela Ponta SET/26 kWh 7,23 7,23 18,00 1,30 0,04 0,18\nUso Sist Distr Geração [kW] SET/26 kW 45,0000 6,99000000 7,26000000 326,70 2,19 9,96\nConsumo Reativo Exc Ponta SET/26 kWh 48,0073 0,29020000 0,36765242 17,65 17,65 18,00 3,18 0,10 0,44\nDemanda [kW] - TUSD SET/26 kW 30,0000 16,53000000 17,16866667 515,06 0.00 3,45 15,71\nEnergia Atv Inj Fponta TUSD SET/26 kWh 4.856,6554 0,16416000 0,17050417 828,08- 0.00 5,55- 25,26-\nSubtotal 1.552,43\nTotal Distribuidora 1.552,43\nContribuição Custeio IP-CIP SET/26 20,42\nTotal a Pagar 1.572,85`;
+  const result=extractCpflOperationsFromPages([page]),fields=extractCpflFieldsFromPages([page]);
+  assert.equal(result.operations.filter(item=>item.selected).length,6);assert.equal(result.operations.find(item=>item.description.startsWith('Energia Atv Inj')).value,-828.08);
+  assert.equal(result.measuredConsumption,5159.3546);assert.equal(result.summary.publicLighting,20.42);assert.equal(field(fields,'installationNumber').value,'5.398.354.035-00');assert.equal(field(fields,'holderName').value,'THIAGO SANCHEZ PEREIRA');
 });
 
 test('associa cliente somente quando a instalação tem correspondência única',()=>{

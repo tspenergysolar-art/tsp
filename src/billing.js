@@ -24,6 +24,15 @@ export function validateBillingSettings(value){
 
 export function calculateInvoice(consumption,client,settings,override=''){
   validateBillingSettings(settings);
+  if(Array.isArray(consumption.operations)&&consumption.operations.length){
+    const operations=consumption.operations.filter(item=>item?.selected===true&&String(item.description||'').trim()).map((item,index)=>({code:`CPFL_OP_${index+1}`,description:String(item.description).trim(),quantity:Number(item.quantity||0),unit:String(item.unit||''),rate:0,value:round(item.value)}));
+    const operationBase=round(operations.reduce((sum,item)=>sum+item.value,0)),adjustmentPercent=Number.isFinite(Number(consumption.adjustmentPercent))?Number(consumption.adjustmentPercent):Number(client.adjustmentPercent||10),adjustmentValue=round(operationBase*adjustmentPercent/100),publicLighting=round(consumption.publicLighting);
+    const items=[...operations,{code:'AJUSTE_TSP',description:`Ajuste TSP (${round(adjustmentPercent,3)}%)`,quantity:1,unit:'%',rate:adjustmentPercent,value:adjustmentValue},{code:'IP_CIP',description:'Contribuição Custeio IP-CIP',quantity:1,unit:'R$',rate:publicLighting,value:publicLighting}];
+    const calculatedTotal=Math.max(0,round(operationBase+adjustmentValue+publicLighting)),hasOverride=String(override).trim()!=='',total=hasOverride?round(Number(override)):calculatedTotal;
+    if(!operations.length)throw new Error('Selecione pelo menos uma operação da conta CPFL.');
+    if(!Number.isFinite(total)||total<0)throw new Error('O total manual deve ser um valor válido e não negativo.');
+    return{items,calculatedTotal,total,manualOverride:hasOverride&&Math.abs(total-calculatedTotal)>.009,taxes:[],operationBase,adjustmentPercent,adjustmentValue,formulaVersion:2};
+  }
   const monthlyRate=Number(consumption.saleTariff||0);
   const injectedRate=monthlyRate>0?monthlyRate:(settings.useClientTariff?Number(client.tariff||0):settings.injectedRate);
   const grossEnergy=round(Number(consumption.injectedEnergy||0)*injectedRate);
@@ -45,13 +54,13 @@ export function calculateInvoice(consumption,client,settings,override=''){
   if(!Number.isFinite(total)||total<0)throw new Error('O total manual deve ser um valor válido e não negativo.');
   const taxBase=Math.max(0,round(items.filter(i=>['ENERGIA','TUSD','TE'].includes(i.code)).reduce((s,i)=>s+i.value,0)));
   const taxes=['icms','pis','cofins'].map(name=>({name:name.toUpperCase(),base:taxBase,rate:settings[`${name}Rate`],value:round(taxBase*settings[`${name}Rate`]/100)}));
-  return {items,calculatedTotal:Math.max(0,calculatedTotal),total,manualOverride:hasOverride&&Math.abs(total-calculatedTotal)>.009,taxes,formulaVersion:1};
+  return {items,calculatedTotal:Math.max(0,calculatedTotal),total,manualOverride:hasOverride&&Math.abs(total-calculatedTotal)>.009,taxes,operationBase:0,adjustmentPercent:0,adjustmentValue:0,formulaVersion:1};
 }
 
 export function buildInvoiceSnapshot({id,client,consumption,company,settings,calculation,history=[],issueDate,dueDate,line='',barcode='',notes='',supersedesInvoiceId=''}){
   return {schemaVersion:1,id,status:'issued',reference:consumption.reference,issueDate,dueDate,companyVersionId:company.versionId,clientId:client.id,consumptionId:consumption.id,
-    client:{name:client.name,taxId:client.taxId,email:client.email,phone:client.phone,whatsapp:client.whatsapp,address:client.address,installationNumber:client.installationNumber,meterNumber:client.meterNumber,supplyType:client.supplyType,tariff:Number(client.tariff||0),discountPercent:Number(client.discountPercent||0)},
-    consumption:{previousReadDate:consumption.previousReadDate,currentReadDate:consumption.currentReadDate,nextReadDate:consumption.nextReadDate,previousReading:Number(consumption.previousReading),currentReading:Number(consumption.currentReading),multiplier:Number(consumption.multiplier),measuredConsumption:Number(consumption.measuredConsumption),injectedEnergy:Number(consumption.injectedEnergy),saleTariff:Number(consumption.saleTariff||0),manualOverride:consumption.manualOverride===true},
-    billingSettings:{...settings},items:calculation.items,taxes:calculation.taxes,calculatedTotal:calculation.calculatedTotal,total:calculation.total,totalManualOverride:calculation.manualOverride,formulaVersion:calculation.formulaVersion,
+    client:{name:client.name,taxId:client.taxId,email:client.email,phone:client.phone,whatsapp:client.whatsapp,address:client.address,installationNumber:client.installationNumber,meterNumber:client.meterNumber,supplyType:client.supplyType,tariff:Number(client.tariff||0),adjustmentPercent:Number(client.adjustmentPercent??10),discountPercent:Number(client.discountPercent||0)},
+    consumption:{previousReadDate:consumption.previousReadDate,currentReadDate:consumption.currentReadDate,nextReadDate:consumption.nextReadDate,previousReading:Number(consumption.previousReading),currentReading:Number(consumption.currentReading),multiplier:Number(consumption.multiplier),measuredConsumption:Number(consumption.measuredConsumption),injectedEnergy:Number(consumption.injectedEnergy),saleTariff:Number(consumption.saleTariff||0),adjustmentPercent:Number(consumption.adjustmentPercent||0),operations:Array.isArray(consumption.operations)?consumption.operations.map(item=>({...item})):[],manualOverride:consumption.manualOverride===true},
+    billingSettings:{...settings,operationBase:Number(calculation.operationBase||0),adjustmentPercent:Number(calculation.adjustmentPercent||0),adjustmentValue:Number(calculation.adjustmentValue||0)},items:calculation.items,taxes:calculation.taxes,calculatedTotal:calculation.calculatedTotal,total:calculation.total,totalManualOverride:calculation.manualOverride,formulaVersion:calculation.formulaVersion,
     history:history.slice(0,6).map(c=>({reference:c.reference,consumption:Number(c.measuredConsumption||0)})),line:String(line).trim(),barcode:String(barcode).trim(),notes:String(notes).trim()||String(consumption.notes||'').trim(),supersedesInvoiceId:String(supersedesInvoiceId||''),cancelledAt:null,cancelledBy:'',cancellationReason:''};
 }
