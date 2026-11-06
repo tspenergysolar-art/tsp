@@ -169,15 +169,15 @@ export function calculateInvoice(consumption, client, settings, override = "") {
       },
       {
         code: "IP_CIP",
-        description: `Contribuição Custeio IP-CIP (informativo - não incluído)${consumption.reference ? ` ${String(consumption.reference).slice(5, 7)}/${String(consumption.reference).slice(2, 4)}` : ""}`,
+        description: `Contribuição Custeio IP-CIP${consumption.reference ? ` ${String(consumption.reference).slice(5, 7)}/${String(consumption.reference).slice(2, 4)}` : ""}`,
         quantity: 1,
         unit: "R$",
         rate: publicLighting,
         value: publicLighting,
-        affectsTotal: false,
+        affectsTotal: true,
       },
     ];
-    const calculatedTotal = Math.max(0, round(subtotal));
+    const calculatedTotal = Math.max(0, round(subtotal + publicLighting));
     const hasOverride = String(override).trim() !== "",
       total = hasOverride ? round(Number(override)) : calculatedTotal;
     if (!Number.isFinite(total) || total < 0)

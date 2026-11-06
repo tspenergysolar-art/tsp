@@ -213,7 +213,7 @@ test("usa tarifa fixa no Consumo Ponta, demanda fixa e desconto em reais", () =>
   assert.equal(result.operationBase, 4880.96);
   assert.equal(result.adjustmentPercent, 0);
   assert.equal(result.adjustmentValue, -1026.46);
-  assert.equal(result.total, 3854.5);
+  assert.equal(result.total, 3874.92);
   assert.equal(result.items[0].code, "CONSUMO_PONTA");
   assert.equal(result.items[0].description, "Consumo Ponta + Fora Ponta [kWh]");
   assert.equal(result.items[0].quantity, 5159.3546);
@@ -232,7 +232,7 @@ test("usa tarifa fixa no Consumo Ponta, demanda fixa e desconto em reais", () =>
     3854.5,
   );
   assert.equal(result.items.at(-1).value, 20.42);
-  assert.equal(result.items.at(-1).affectsTotal, false);
+  assert.equal(result.items.at(-1).affectsTotal, true);
   assert.equal(result.sourceInvoiceTotal, 1572.85);
   assert.equal(result.sourceSubtotal, 1552.43);
   assert.equal(result.formulaVersion, 6);
@@ -257,5 +257,5 @@ test("desconto em reais não transforma o total em valor negativo", () => {
   };
   const result = calculateInvoice(monthly, client, emptyBillingSettings());
   assert.equal(result.items.find((item) => item.code === "SUBTOTAL").value, 0);
-  assert.equal(result.total, 0);
+  assert.equal(result.total, 20);
 });
