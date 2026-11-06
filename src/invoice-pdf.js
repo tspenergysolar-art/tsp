@@ -239,7 +239,7 @@ export async function createInvoicePdf(invoice, company) {
     "Endereço",
     invoice.client.address || "-",
     410,
-    710,
+    714,
     150,
   );
   box(page, margin, 637, content, 45, pale);
