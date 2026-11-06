@@ -101,13 +101,24 @@ function dataUrlBytes(value) {
 }
 function addLink(page, pdf, url, x, y, width, height) {
   if (!url) return;
+  const action = pdf.context.register(
+    pdf.context.obj({
+      Type: "Action",
+      S: "URI",
+      URI: PDFString.of(url),
+    }),
+  );
   const annotation = pdf.context.register(
     pdf.context.obj({
       Type: "Annot",
       Subtype: "Link",
       Rect: [x, y, x + width, y + height],
       Border: [0, 0, 0],
-      A: { Type: "Action", S: "URI", URI: PDFString.of(url) },
+      P: page.ref,
+      F: 4,
+      H: "I",
+      Contents: PDFString.of("Abrir pagamento PIX da fatura"),
+      A: action,
     }),
   );
   page.node.addAnnot(annotation);
@@ -558,6 +569,15 @@ export async function createInvoicePdf(invoice, company) {
     135,
     146,
     6,
+    gray,
+  );
+  text(
+    page,
+    regular,
+    "Se o OneDrive bloquear o botão, baixe e abra o PDF no navegador ou em outro leitor.",
+    135,
+    136,
+    4.6,
     gray,
   );
   if (paymentUrl) {
