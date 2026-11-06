@@ -11,7 +11,7 @@ import {
 } from "./database.js";
 import { normalizeClient, normalizeConsumption } from "./validation.js";
 import { financialRows, financeStatusLabels } from "./finance.js";
-import { calculateInvoice } from "./billing.js";
+import { calculateInvoice, normalizeBillingSettings } from "./billing.js";
 import { escapeHtml as e, icon, toast } from "./ui.js";
 import {
   readCpflPdf,
@@ -379,7 +379,7 @@ export async function mountConsumption(container) {
       null,
       null,
       null,
-      billing || { useClientTariff: true, injectedRate: 0 },
+      normalizeBillingSettings(billing || {}),
     );
   } catch (error) {
     showError(container, error);
@@ -428,7 +428,14 @@ function readOperationRows(host) {
     }))
     .filter((item) => item.description);
 }
-function renderCpflReview(host, result, clients, currentClient, onApply) {
+function renderCpflReview(
+  host,
+  result,
+  clients,
+  currentClient,
+  billing,
+  onApply,
+) {
   const matched = findClientForCpfl(result.fields, clients),
     selectedId = currentClient?.id || "",
     fields = result.fields.filter((item) =>
@@ -472,25 +479,26 @@ function renderCpflReview(host, result, clients, currentClient, onApply) {
     const demand = Number(host.querySelector("#cpfl-demand").value || 0),
       tariff = Number(host.querySelector("#cpfl-sale-tariff").value || 0),
       discount = Number(host.querySelector("#cpfl-solar-discount").value || 0),
-      consumptionRow = operations.find((item) =>
-        /^Consumo Ponta\b.*TUSD/i.test(item.description),
-      ),
-      demandRow = operations.find((item) =>
-        /^Demanda \[kW\]/i.test(item.description),
-      ),
       fullTotal = Number(result.summary?.distributorInvoiceTotal || 0),
-      lighting = Number(host.querySelector("#cpfl-cip").value || 0),
-      sourceSubtotal = Math.max(0, fullTotal - lighting),
-      adjustedBase =
-        sourceSubtotal -
-        Number(consumptionRow?.value || 0) +
-        Number(consumptionRow?.quantity || 0) * tariff -
-        Number(demandRow?.value || 0) +
-        demand,
-      subtotal = Math.max(0, adjustedBase - discount),
-      total = subtotal + lighting;
+      lighting = Number(host.querySelector("#cpfl-cip").value || 0);
+    const preview = calculateInvoice(
+        {
+          operations,
+          saleTariff: tariff,
+          demandCharge: demand,
+          solarCreditDiscount: discount,
+          sourceInvoiceTotal: fullTotal,
+          publicLighting: lighting,
+          reference:
+            result.fields.find((item) => item.key === "reference")?.value ||
+            "2000-01",
+        },
+        chosenClient,
+        billing,
+      ),
+      energy = preview.items.find((item) => item.code === "CONSUMO_PONTA");
     host.querySelector("#cpfl-estimate").innerHTML =
-      `<span>Total previsto</span><strong>${money(total)}</strong><small>Base CPFL completa ${money(fullTotal)} · após substituições, desconto e IP-CIP</small>`;
+      `<span>Total previsto</span><strong>${money(preview.total)}</strong><small>${number(energy?.quantity || 0, 4)} kWh × R$ ${number(tariff, 6)} · desconto ${money(discount)} · IP-CIP ${money(lighting)}</small>`;
   };
   host
     .querySelectorAll(
@@ -542,6 +550,7 @@ function bindCpflReader(container, clients, selected, records, billing) {
         result,
         clients,
         selected,
+        billing,
         async (
           data,
           clientId,
@@ -659,6 +668,7 @@ async function renderConsumption(
   bindCpflReader(container, clients, selected, records, billing);
   const form = container.querySelector("#consumption-form"),
     rowsHost = container.querySelector("#operation-rows");
+  form.onsubmit = (event) => event.preventDefault();
   form.querySelector('input[name="saleTariff"][type="hidden"]')?.remove();
   form
     .querySelector('input[name="solarCreditDiscount"][type="hidden"]')
@@ -669,8 +679,13 @@ async function renderConsumption(
         discount = Number(form.elements.solarCreditDiscount.value || 0),
         operations = readOperationRows(container),
         sourceTotal = Number(form.elements.sourceInvoiceTotal.value || 0),
-        publicLighting = Number(form.elements.publicLighting.value || 0),
-        preview = calculateInvoice(
+        publicLighting = Number(form.elements.publicLighting.value || 0);
+      if (!operations.some((item) => item.selected)) {
+        container.querySelector("#calculation-info").innerHTML =
+          "Leia a conta CPFL ou adicione uma operação para visualizar o cálculo.";
+        return;
+      }
+      const preview = calculateInvoice(
           {
             operations,
             saleTariff: tariff,

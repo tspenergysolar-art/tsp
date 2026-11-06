@@ -38,6 +38,7 @@ test('cadastro mensal inclui o componente do leitor CPFL',async()=>{
   assert.match(source,/function cpflReaderMarkup\(\)/);assert.match(source,/id="cpfl-drop-zone"/);assert.match(source,/id="cpfl-file"/);
   assert.match(source,/function consumptionClientGateMarkup\(clients, selected\)/);assert.match(source,/id="consumption-client-gate"/);assert.match(source,/Nenhum cliente é escolhido automaticamente/);
   assert.match(source,/mismatchedClient/);assert.match(source,/Cliente travado para este lançamento/);
+  assert.match(source,/normalizeBillingSettings\(billing \|\| \{\}\)/);assert.match(source,/form\.onsubmit = \(event\) => event\.preventDefault\(\)/);
   assert.match(source,/input\[name="saleTariff"\]\[type="hidden"\]/);
   assert.match(source,/input\[name="solarCreditDiscount"\]\[type="hidden"\]/);
 });
