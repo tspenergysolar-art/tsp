@@ -136,23 +136,70 @@ function pixPaymentUrl(invoice, payload) {
 async function embedLogo(pdf, value) {
   const bytes = dataUrlBytes(value);
   if (!bytes) return null;
-  if (value.startsWith("data:image/png")) return pdf.embedPng(bytes);
-  if (value.startsWith("data:image/jpeg")) return pdf.embedJpg(bytes);
-  if (value.startsWith("data:image/webp")) {
-    const bitmap = await createImageBitmap(
-      new Blob([bytes], { type: "image/webp" }),
-    );
-    try {
-      const canvas = document.createElement("canvas");
-      canvas.width = bitmap.width;
-      canvas.height = bitmap.height;
-      canvas.getContext("2d").drawImage(bitmap, 0, 0);
-      return pdf.embedPng(dataUrlBytes(canvas.toDataURL("image/png")));
-    } finally {
-      bitmap.close();
+  const mime = value.startsWith("data:image/png")
+    ? "image/png"
+    : value.startsWith("data:image/jpeg")
+      ? "image/jpeg"
+      : value.startsWith("data:image/webp")
+        ? "image/webp"
+        : "";
+  if (!mime) return null;
+  const bitmap = await createImageBitmap(new Blob([bytes], { type: mime }));
+  try {
+    const source = document.createElement("canvas");
+    source.width = bitmap.width;
+    source.height = bitmap.height;
+    const sourceContext = source.getContext("2d", { willReadFrequently: true });
+    sourceContext.drawImage(bitmap, 0, 0);
+    const pixels = sourceContext.getImageData(0, 0, source.width, source.height);
+    let minX = source.width,
+      minY = source.height,
+      maxX = -1,
+      maxY = -1;
+    for (let y = 0; y < source.height; y += 1) {
+      for (let x = 0; x < source.width; x += 1) {
+        if (pixels.data[(y * source.width + x) * 4 + 3] > 10) {
+          minX = Math.min(minX, x);
+          minY = Math.min(minY, y);
+          maxX = Math.max(maxX, x);
+          maxY = Math.max(maxY, y);
+        }
+      }
     }
+    if (maxX < minX || maxY < minY) return null;
+    const logoCanvas = document.createElement("canvas");
+    logoCanvas.width = maxX - minX + 1;
+    logoCanvas.height = maxY - minY + 1;
+    const logoContext = logoCanvas.getContext("2d", {
+      willReadFrequently: true,
+    });
+    logoContext.drawImage(
+      source,
+      minX,
+      minY,
+      logoCanvas.width,
+      logoCanvas.height,
+      0,
+      0,
+      logoCanvas.width,
+      logoCanvas.height,
+    );
+    const logoPixels = logoContext.getImageData(
+      0,
+      0,
+      logoCanvas.width,
+      logoCanvas.height,
+    );
+    for (let index = 0; index < logoPixels.data.length; index += 4) {
+      logoPixels.data[index] = 255;
+      logoPixels.data[index + 1] = 255;
+      logoPixels.data[index + 2] = 255;
+    }
+    logoContext.putImageData(logoPixels, 0, 0);
+    return pdf.embedPng(dataUrlBytes(logoCanvas.toDataURL("image/png")));
+  } finally {
+    bitmap.close();
   }
-  return null;
 }
 
 export async function createInvoicePdf(invoice, company) {
@@ -171,10 +218,10 @@ export async function createInvoicePdf(invoice, company) {
     logo = await embedLogo(pdf, company.logo);
   } catch {}
   if (logo) {
-    const s = logo.scaleToFit(55, 46);
+    const s = logo.scaleToFit(70, 62);
     page.drawImage(logo, {
-      x: 27,
-      y: 778 + (46 - s.height) / 2,
+      x: 21,
+      y: 766 + (62 - s.height) / 2,
       width: s.width,
       height: s.height,
     });
@@ -183,7 +230,7 @@ export async function createInvoicePdf(invoice, company) {
     page,
     bold,
     p.tradeName || "TSP ENERGY SOLAR",
-    logo ? 93 : 28,
+    logo ? 103 : 28,
     807,
     17,
     rgb(1, 1, 1),
@@ -192,7 +239,7 @@ export async function createInvoicePdf(invoice, company) {
     page,
     regular,
     "SOLAR & ENERGIA SUSTENTÁVEL",
-    logo ? 93 : 28,
+    logo ? 103 : 28,
     793,
     7,
     lime,
@@ -201,7 +248,7 @@ export async function createInvoicePdf(invoice, company) {
     page,
     regular,
     "Documento de Cobrança / Demonstrativo de Consumo",
-    logo ? 93 : 28,
+    logo ? 103 : 28,
     778,
     7,
     rgb(0.78, 0.86, 0.81),
