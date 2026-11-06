@@ -1,52 +1,598 @@
-import {test,before,after,beforeEach} from 'node:test';
-import {readFile} from 'node:fs/promises';
-import {initializeTestEnvironment,assertFails,assertSucceeds} from '@firebase/rules-unit-testing';
-import {doc,setDoc,getDoc,deleteDoc,updateDoc,writeBatch,serverTimestamp,collection,getDocs,query,where} from 'firebase/firestore';
-import {emptyProfile} from '../src/validation.js';
+import { test, before, after, beforeEach } from "node:test";
+import { readFile } from "node:fs/promises";
+import {
+  initializeTestEnvironment,
+  assertFails,
+  assertSucceeds,
+} from "@firebase/rules-unit-testing";
+import {
+  doc,
+  setDoc,
+  getDoc,
+  deleteDoc,
+  updateDoc,
+  writeBatch,
+  serverTimestamp,
+  collection,
+  getDocs,
+  query,
+  where,
+} from "firebase/firestore";
+import { emptyProfile } from "../src/validation.js";
 let env;
-before(async()=>{env=await initializeTestEnvironment({projectId:'demo-tsp-energy',firestore:{rules:await readFile('firestore.rules','utf8'),host:'127.0.0.1',port:8080}});});
-after(async()=>{await env?.cleanup();});
-beforeEach(async()=>{await env.clearFirestore();await env.withSecurityRulesDisabled(async ctx=>{await setDoc(doc(ctx.firestore(),'admins','admin-test'),{active:true});await setDoc(doc(ctx.firestore(),'admins','inactive-test'),{active:false});});});
-function data(revision=1,versionId='version-00000000000000001') {return {schemaVersion:1,revision,versionId,profile:{...emptyProfile(),legalName:'Empresa de teste',tradeName:'Teste'},logo:'',pixQr:'',updatedAt:serverTimestamp(),updatedBy:'admin-test'};}
-function persist(db,payload=data()) {const batch=writeBatch(db);batch.set(doc(db,'settings','company'),payload);batch.set(doc(db,'settingsVersions',payload.versionId),payload);return batch.commit();}
-function clientData(revision=1,versionId='client-version-000000001'){return {schemaVersion:1,id:'client-000000000000000001',name:'Cliente Teste',taxId:'',email:'',phone:'',whatsapp:'',address:'',installationNumber:'UC-1',meterNumber:'',supplyType:'',contractStart:'',tariff:.8,adjustmentPercent:10,discountPercent:10,notes:'',status:'active',taxIdDigits:'',phoneDigits:'',whatsappDigits:'',normalizedName:'cliente teste',revision,versionId,createdAt:serverTimestamp(),createdBy:'admin-test',updatedAt:serverTimestamp(),updatedBy:'admin-test'};}
-function persistClient(db,payload=clientData()){const batch=writeBatch(db);batch.set(doc(db,'clients',payload.id),payload);batch.set(doc(db,'clientVersions',payload.versionId),payload);return batch.commit();}
-function consumptionData(revision=1,versionId='usage-version-0000000001'){return {schemaVersion:1,id:'client-000000000000000001--2026-10',clientId:'client-000000000000000001',clientName:'Cliente Teste',installationNumber:'UC-1',reference:'2026-10',previousReadDate:'2026-09-15',currentReadDate:'2026-10-15',nextReadDate:'2026-11-15',previousReading:100,currentReading:150,multiplier:1,measuredConsumption:50,injectedEnergy:0,saleTariff:.72,adjustmentPercent:10,operations:[],tusdConsumption:0,teConsumption:0,solarCreditDiscount:0,tariffFlag:0,publicLighting:0,taxes:0,otherCharges:0,notes:'',dueDate:'2026-10-25',calculatedConsumption:50,manualOverride:false,revision,versionId,createdAt:serverTimestamp(),createdBy:'admin-test',updatedAt:serverTimestamp(),updatedBy:'admin-test'};}
-function persistConsumption(db,payload=consumptionData()){const batch=writeBatch(db);batch.set(doc(db,'consumptions',payload.id),payload);batch.set(doc(db,'consumptionVersions',payload.versionId),payload);return batch.commit();}
-function billingData(revision=1,versionId='billing-version-000000001'){return {schemaVersion:1,useClientTariff:true,injectedRate:0,tusdRate:.2,teRate:.3,icmsRate:18,pisRate:1.65,cofinsRate:7.6,revision,versionId,updatedAt:serverTimestamp(),updatedBy:'admin-test'};}
-function persistBilling(db,payload=billingData()){const batch=writeBatch(db);batch.set(doc(db,'billingSettings','current'),payload);batch.set(doc(db,'billingSettingsVersions',payload.versionId),payload);return batch.commit();}
-function invoiceData(){return {schemaVersion:1,id:'invoice-000000000000000001',status:'issued',reference:'2026-10',issueDate:'2026-10-16',dueDate:'2026-10-25',companyVersionId:'version-00000000000000001',clientId:'client-000000000000000001',consumptionId:'client-000000000000000001--2026-10',client:{name:'Cliente Teste'},consumption:{measuredConsumption:50},billingSettings:{tusdRate:.2},items:[],taxes:[],calculatedTotal:10,total:10,totalManualOverride:false,formulaVersion:1,history:[],line:'',barcode:'',notes:'',supersedesInvoiceId:'',issuedAt:serverTimestamp(),issuedBy:'admin-test',cancelledAt:null,cancelledBy:'',cancellationReason:''};}
-function paymentData(){return {schemaVersion:1,id:'payment-000000000000000001',invoiceId:'invoice-000000000000000001',clientId:'client-000000000000000001',paymentDate:'2026-10-20',amount:5,method:'PIX',notes:'',status:'active',createdAt:serverTimestamp(),createdBy:'admin-test',cancelledAt:null,cancelledBy:'',cancellationReason:''};}
-function customerAccountData(){return {schemaVersion:1,uid:'customer-test',email:'cliente@teste.com',clientId:'client-000000000000000001',clientName:'Cliente Teste',active:true,createdAt:serverTimestamp(),createdBy:'admin-test',updatedAt:serverTimestamp(),updatedBy:'admin-test'};}
-function portalSettingsData(){return {schemaVersion:1,profile:{legalName:'Empresa Teste',tradeName:'TSP',cnpj:'',pixBeneficiary:'',pixKey:'',bank:'',bankDetails:'',phone:'',whatsapp:'',email:'',address:'',city:'',notices:''},logo:'',updatedAt:serverTimestamp(),updatedBy:'admin-test'};}
-const admin=()=>env.authenticatedContext('admin-test').firestore();
-test('visitante anônimo não lê ou grava dados',async()=>{const db=env.unauthenticatedContext().firestore();await assertFails(getDoc(doc(db,'settings','company')));await assertFails(persist(db));await assertFails(getDoc(doc(db,'admins','admin-test')));});
-test('login sem autorização não permite acessar empresa',async()=>{const db=env.authenticatedContext('outsider').firestore();await assertFails(getDoc(doc(db,'settings','company')));await assertFails(persist(db));});
-test('administrador inativo não lê configurações',async()=>{await assertFails(getDoc(doc(env.authenticatedContext('inactive-test').firestore(),'settings','company')));});
-test('conta pode consultar somente sua própria autorização',async()=>{const db=admin();await assertSucceeds(getDoc(doc(db,'admins','admin-test')));await assertFails(getDoc(doc(db,'admins','inactive-test')));await assertFails(getDocs(collection(db,'admins')));});
-test('ninguém promove a própria conta pelo navegador',async()=>{for(const uid of ['admin-test','outsider']){const db=env.authenticatedContext(uid).firestore();await assertFails(setDoc(doc(db,'admins',uid),{active:true}));}});
-test('admin salva e relê configuração com versão atômica',async()=>{const db=admin();await assertSucceeds(persist(db));await assertSucceeds(getDoc(doc(db,'settings','company')));await assertSucceeds(getDocs(collection(db,'settingsVersions')));});
-test('dia padrão de vencimento pode ficar em branco',async()=>{await assertSucceeds(persist(admin(),data()));});
-test('não grava configuração sem histórico',async()=>{await assertFails(setDoc(doc(admin(),'settings','company'),data()));});
-test('não cria versão órfã',async()=>{await assertFails(setDoc(doc(admin(),'settingsVersions','version-00000000000000001'),data()));});
-test('incrementa a revisão e mantém a versão anterior',async()=>{const db=admin();await persist(db);await assertSucceeds(persist(db,data(2,'version-00000000000000002')));await assertSucceeds(getDoc(doc(db,'settingsVersions','version-00000000000000001')));});
-test('bloqueia versão repetida e revisão fora da sequência',async()=>{const db=admin();await persist(db);await assertFails(persist(db,data(3,'version-00000000000000003')));await assertFails(persist(db,data(2)));});
-test('histórico não pode ser editado ou excluído',async()=>{const db=admin();await persist(db);await assertFails(updateDoc(doc(db,'settingsVersions','version-00000000000000001'),{revision:99}));await assertFails(deleteDoc(doc(db,'settingsVersions','version-00000000000000001')));await assertFails(deleteDoc(doc(db,'settings','company')));});
-test('bloqueia identidade falsa, timestamp e propriedades extras',async()=>{await assertFails(persist(admin(),{...data(),updatedBy:'outro'}));await assertFails(persist(admin(),{...data(),updatedAt:new Date(0)}));await assertFails(persist(admin(),{...data(),extra:true}));});
-test('bloqueia vencimento inválido, imagens inválidas e QR incompleto',async()=>{const p=data();await assertFails(persist(admin(),{...p,profile:{...p.profile,dueDay:40}}));await assertFails(persist(admin(),{...p,logo:'https://example.com/logo.png'}));await assertFails(persist(admin(),{...p,pixQr:'data:image/png;base64,AAAA'}));});
-test('revogação impede novas leituras e gravações',async()=>{const db=admin();await persist(db);await env.withSecurityRulesDisabled(ctx=>updateDoc(doc(ctx.firestore(),'admins','admin-test'),{active:false}));await assertFails(getDoc(doc(db,'settings','company')));await assertFails(persist(db,data(2,'version-00000000000000002')));});
-test('admin cadastra cliente com versão atômica e não pode excluir',async()=>{const db=admin();await assertSucceeds(persistClient(db));await assertSucceeds(getDoc(doc(db,'clients','client-000000000000000001')));await assertFails(deleteDoc(doc(db,'clients','client-000000000000000001')));});
-test('cliente não pode ser salvo sem versão ou com campos financeiros inválidos',async()=>{const db=admin();await assertFails(setDoc(doc(db,'clients','client-000000000000000001'),clientData()));const invalid=clientData();invalid.discountPercent=101;await assertFails(persistClient(db,invalid));});
-test('admin registra consumo único e pode excluir cadastro e versão',async()=>{const db=admin();await persistClient(db);await assertSucceeds(persistConsumption(db));await assertSucceeds(getDocs(collection(db,'consumptions')));await assertSucceeds(deleteDoc(doc(db,'consumptions','client-000000000000000001--2026-10')));await assertSucceeds(deleteDoc(doc(db,'consumptionVersions','usage-version-0000000001')));});
-test('consumo exige cliente existente e valores coerentes',async()=>{const db=admin();await assertFails(persistConsumption(db));await persistClient(db);const invalid=consumptionData();invalid.currentReading=90;await assertFails(persistConsumption(db,invalid));});
-test('consumo exige a data da próxima leitura',async()=>{const db=admin();await persistClient(db);const invalid=consumptionData();invalid.nextReadDate='';await assertFails(persistConsumption(db,invalid));});
-test('admin salva fórmulas com versão atômica',async()=>{const db=admin();await assertSucceeds(persistBilling(db));await assertFails(persistBilling(db,billingData(3,'billing-version-000000003')));const invalid=billingData(2,'billing-version-000000002');invalid.icmsRate=101;await assertFails(persistBilling(db,invalid));});
-test('fatura exige origens válidas, permite cancelamento auditado e exclusão pelo admin',async()=>{const db=admin();await persist(db);await persistClient(db);await persistConsumption(db);const invoice=invoiceData();await assertSucceeds(setDoc(doc(db,'invoices',invoice.id),invoice));await assertFails(updateDoc(doc(db,'invoices',invoice.id),{total:1}));await assertSucceeds(updateDoc(doc(db,'invoices',invoice.id),{status:'cancelled',cancelledAt:serverTimestamp(),cancelledBy:'admin-test',cancellationReason:'Emissão incorreta'}));await assertSucceeds(deleteDoc(doc(db,'invoices',invoice.id)));});
-test('fatura não pode apontar para consumo inexistente',async()=>{const db=admin();await persist(db);await persistClient(db);await assertFails(setDoc(doc(db,'invoices','invoice-000000000000000001'),invoiceData()));});
-test('pagamento parcial pode ser criado, cancelado ou excluído pelo admin',async()=>{const db=admin();await persist(db);await persistClient(db);await persistConsumption(db);const invoice=invoiceData();await setDoc(doc(db,'invoices',invoice.id),invoice);const payment=paymentData();await assertSucceeds(setDoc(doc(db,'payments',payment.id),payment));await assertFails(updateDoc(doc(db,'payments',payment.id),{amount:9}));await assertSucceeds(updateDoc(doc(db,'payments',payment.id),{status:'cancelled',cancelledAt:serverTimestamp(),cancelledBy:'admin-test',cancellationReason:'Lançamento duplicado'}));await assertSucceeds(deleteDoc(doc(db,'payments',payment.id)));});
-test('fatura cancelada não aceita novo pagamento',async()=>{const db=admin();await persist(db);await persistClient(db);await persistConsumption(db);const invoice=invoiceData();await setDoc(doc(db,'invoices',invoice.id),invoice);await updateDoc(doc(db,'invoices',invoice.id),{status:'cancelled',cancelledAt:serverTimestamp(),cancelledBy:'admin-test',cancellationReason:'Emissão incorreta'});await assertFails(setDoc(doc(db,'payments',paymentData().id),paymentData()));});
-test('compartilhamento só registra confirmação vinculada e pode ser excluído pelo admin',async()=>{const db=admin();await persist(db);await persistClient(db);await persistConsumption(db);const invoice=invoiceData();await setDoc(doc(db,'invoices',invoice.id),invoice);const share={schemaVersion:1,id:'share-00000000000000000001',invoiceId:invoice.id,clientId:invoice.clientId,channel:'whatsapp',sharedAt:serverTimestamp(),sharedBy:'admin-test'};await assertSucceeds(setDoc(doc(db,'shares',share.id),share));await assertFails(updateDoc(doc(db,'shares',share.id),{channel:'email'}));await assertSucceeds(deleteDoc(doc(db,'shares',share.id)));});
-test('visitante não acessa clientes ou consumos e coleções futuras seguem fechadas',async()=>{const visitor=env.unauthenticatedContext().firestore();await assertFails(getDocs(collection(visitor,'clients')));await assertFails(getDocs(collection(visitor,'consumptions')));await assertFails(setDoc(doc(admin(),'payments','teste'),{value:1}));});
-test('admin libera, bloqueia e redefine o vínculo de acesso do cliente',async()=>{const db=admin();await persistClient(db);const account=customerAccountData();await assertSucceeds(setDoc(doc(db,'customerAccounts',account.uid),account));await assertSucceeds(setDoc(doc(db,'portalSettings','company'),portalSettingsData()));await assertSucceeds(updateDoc(doc(db,'customerAccounts',account.uid),{active:false,updatedAt:serverTimestamp(),updatedBy:'admin-test'}));await assertSucceeds(deleteDoc(doc(db,'customerAccounts',account.uid)));});
-test('cliente acessa somente cadastro, consumos, faturas e pagamentos vinculados',async()=>{const adb=admin();await persist(adb);await persistClient(adb);await persistConsumption(adb);const invoice=invoiceData();await setDoc(doc(adb,'invoices',invoice.id),invoice);await setDoc(doc(adb,'payments',paymentData().id),paymentData());await setDoc(doc(adb,'customerAccounts','customer-test'),customerAccountData());await setDoc(doc(adb,'portalSettings','company'),portalSettingsData());const db=env.authenticatedContext('customer-test',{email:'cliente@teste.com'}).firestore();await assertSucceeds(getDoc(doc(db,'customerAccounts','customer-test')));await assertSucceeds(getDoc(doc(db,'clients','client-000000000000000001')));await assertSucceeds(getDocs(query(collection(db,'consumptions'),where('clientId','==','client-000000000000000001'))));await assertSucceeds(getDocs(query(collection(db,'invoices'),where('clientId','==','client-000000000000000001'))));await assertSucceeds(getDocs(query(collection(db,'payments'),where('clientId','==','client-000000000000000001'))));await assertSucceeds(getDoc(doc(db,'portalSettings','company')));await assertFails(getDocs(collection(db,'clients')));await assertFails(setDoc(doc(db,'clients','outro'),clientData()));await assertFails(updateDoc(doc(db,'customerAccounts','customer-test'),{active:false}));await assertFails(deleteDoc(doc(db,'customerAccounts','customer-test')));});
-test('cliente bloqueado perde o acesso aos dados imediatamente',async()=>{await env.withSecurityRulesDisabled(async ctx=>{const db=ctx.firestore();await setDoc(doc(db,'clients','client-000000000000000001'),clientData());await setDoc(doc(db,'customerAccounts','customer-test'),{...customerAccountData(),active:false});await setDoc(doc(db,'portalSettings','company'),portalSettingsData());});const db=env.authenticatedContext('customer-test').firestore();await assertSucceeds(getDoc(doc(db,'customerAccounts','customer-test')));await assertFails(getDoc(doc(db,'clients','client-000000000000000001')));await assertFails(getDoc(doc(db,'portalSettings','company')));});
+before(async () => {
+  env = await initializeTestEnvironment({
+    projectId: "demo-tsp-energy",
+    firestore: {
+      rules: await readFile("firestore.rules", "utf8"),
+      host: "127.0.0.1",
+      port: 8080,
+    },
+  });
+});
+after(async () => {
+  await env?.cleanup();
+});
+beforeEach(async () => {
+  await env.clearFirestore();
+  await env.withSecurityRulesDisabled(async (ctx) => {
+    await setDoc(doc(ctx.firestore(), "admins", "admin-test"), {
+      active: true,
+    });
+    await setDoc(doc(ctx.firestore(), "admins", "inactive-test"), {
+      active: false,
+    });
+  });
+});
+function data(revision = 1, versionId = "version-00000000000000001") {
+  return {
+    schemaVersion: 1,
+    revision,
+    versionId,
+    profile: {
+      ...emptyProfile(),
+      legalName: "Empresa de teste",
+      tradeName: "Teste",
+    },
+    logo: "",
+    pixQr: "",
+    updatedAt: serverTimestamp(),
+    updatedBy: "admin-test",
+  };
+}
+function persist(db, payload = data()) {
+  const batch = writeBatch(db);
+  batch.set(doc(db, "settings", "company"), payload);
+  batch.set(doc(db, "settingsVersions", payload.versionId), payload);
+  return batch.commit();
+}
+function clientData(revision = 1, versionId = "client-version-000000001") {
+  return {
+    schemaVersion: 1,
+    id: "client-000000000000000001",
+    name: "Cliente Teste",
+    taxId: "",
+    email: "",
+    phone: "",
+    whatsapp: "",
+    address: "",
+    installationNumber: "UC-1",
+    meterNumber: "",
+    supplyType: "",
+    contractStart: "",
+    tariff: 0.918954,
+    saleTariffDefault: 0.918954,
+    demandCharge: 208.76,
+    solarDiscountDefault: 0,
+    adjustmentPercent: 0,
+    discountPercent: 0,
+    notes: "",
+    status: "active",
+    taxIdDigits: "",
+    phoneDigits: "",
+    whatsappDigits: "",
+    normalizedName: "cliente teste",
+    revision,
+    versionId,
+    createdAt: serverTimestamp(),
+    createdBy: "admin-test",
+    updatedAt: serverTimestamp(),
+    updatedBy: "admin-test",
+  };
+}
+function persistClient(db, payload = clientData()) {
+  const batch = writeBatch(db);
+  batch.set(doc(db, "clients", payload.id), payload);
+  batch.set(doc(db, "clientVersions", payload.versionId), payload);
+  return batch.commit();
+}
+function consumptionData(revision = 1, versionId = "usage-version-0000000001") {
+  return {
+    schemaVersion: 1,
+    id: "client-000000000000000001--2026-10",
+    clientId: "client-000000000000000001",
+    clientName: "Cliente Teste",
+    installationNumber: "UC-1",
+    reference: "2026-10",
+    previousReadDate: "2026-09-15",
+    currentReadDate: "2026-10-15",
+    nextReadDate: "2026-11-15",
+    previousReading: 100,
+    currentReading: 150,
+    multiplier: 1,
+    measuredConsumption: 50,
+    injectedEnergy: 0,
+    saleTariff: 0.918954,
+    demandCharge: 208.76,
+    sourceInvoiceTotal: 0,
+    adjustmentPercent: 0,
+    operations: [],
+    tusdConsumption: 0,
+    teConsumption: 0,
+    solarCreditDiscount: 0,
+    tariffFlag: 0,
+    publicLighting: 0,
+    taxes: 0,
+    otherCharges: 0,
+    notes: "",
+    dueDate: "2026-10-25",
+    calculatedConsumption: 50,
+    manualOverride: false,
+    revision,
+    versionId,
+    createdAt: serverTimestamp(),
+    createdBy: "admin-test",
+    updatedAt: serverTimestamp(),
+    updatedBy: "admin-test",
+  };
+}
+function persistConsumption(db, payload = consumptionData()) {
+  const batch = writeBatch(db);
+  batch.set(doc(db, "consumptions", payload.id), payload);
+  batch.set(doc(db, "consumptionVersions", payload.versionId), payload);
+  return batch.commit();
+}
+function billingData(revision = 1, versionId = "billing-version-000000001") {
+  return {
+    schemaVersion: 1,
+    useClientTariff: true,
+    injectedRate: 0,
+    tusdRate: 0.2,
+    teRate: 0.3,
+    icmsRate: 18,
+    pisRate: 1.65,
+    cofinsRate: 7.6,
+    revision,
+    versionId,
+    updatedAt: serverTimestamp(),
+    updatedBy: "admin-test",
+  };
+}
+function persistBilling(db, payload = billingData()) {
+  const batch = writeBatch(db);
+  batch.set(doc(db, "billingSettings", "current"), payload);
+  batch.set(doc(db, "billingSettingsVersions", payload.versionId), payload);
+  return batch.commit();
+}
+function invoiceData() {
+  return {
+    schemaVersion: 1,
+    id: "invoice-000000000000000001",
+    status: "issued",
+    reference: "2026-10",
+    issueDate: "2026-10-16",
+    dueDate: "2026-10-25",
+    companyVersionId: "version-00000000000000001",
+    clientId: "client-000000000000000001",
+    consumptionId: "client-000000000000000001--2026-10",
+    client: { name: "Cliente Teste" },
+    consumption: { measuredConsumption: 50 },
+    billingSettings: { tusdRate: 0.2 },
+    items: [],
+    taxes: [],
+    calculatedTotal: 10,
+    total: 10,
+    totalManualOverride: false,
+    formulaVersion: 1,
+    history: [],
+    line: "",
+    barcode: "",
+    notes: "",
+    supersedesInvoiceId: "",
+    issuedAt: serverTimestamp(),
+    issuedBy: "admin-test",
+    cancelledAt: null,
+    cancelledBy: "",
+    cancellationReason: "",
+  };
+}
+function paymentData() {
+  return {
+    schemaVersion: 1,
+    id: "payment-000000000000000001",
+    invoiceId: "invoice-000000000000000001",
+    clientId: "client-000000000000000001",
+    paymentDate: "2026-10-20",
+    amount: 5,
+    method: "PIX",
+    notes: "",
+    status: "active",
+    createdAt: serverTimestamp(),
+    createdBy: "admin-test",
+    cancelledAt: null,
+    cancelledBy: "",
+    cancellationReason: "",
+  };
+}
+function customerAccountData() {
+  return {
+    schemaVersion: 1,
+    uid: "customer-test",
+    email: "cliente@teste.com",
+    clientId: "client-000000000000000001",
+    clientName: "Cliente Teste",
+    active: true,
+    createdAt: serverTimestamp(),
+    createdBy: "admin-test",
+    updatedAt: serverTimestamp(),
+    updatedBy: "admin-test",
+  };
+}
+function portalSettingsData() {
+  return {
+    schemaVersion: 1,
+    profile: {
+      legalName: "Empresa Teste",
+      tradeName: "TSP",
+      cnpj: "",
+      pixBeneficiary: "",
+      pixKey: "",
+      bank: "",
+      bankDetails: "",
+      phone: "",
+      whatsapp: "",
+      email: "",
+      address: "",
+      city: "",
+      notices: "",
+    },
+    logo: "",
+    updatedAt: serverTimestamp(),
+    updatedBy: "admin-test",
+  };
+}
+const admin = () => env.authenticatedContext("admin-test").firestore();
+test("visitante anônimo não lê ou grava dados", async () => {
+  const db = env.unauthenticatedContext().firestore();
+  await assertFails(getDoc(doc(db, "settings", "company")));
+  await assertFails(persist(db));
+  await assertFails(getDoc(doc(db, "admins", "admin-test")));
+});
+test("login sem autorização não permite acessar empresa", async () => {
+  const db = env.authenticatedContext("outsider").firestore();
+  await assertFails(getDoc(doc(db, "settings", "company")));
+  await assertFails(persist(db));
+});
+test("administrador inativo não lê configurações", async () => {
+  await assertFails(
+    getDoc(
+      doc(
+        env.authenticatedContext("inactive-test").firestore(),
+        "settings",
+        "company",
+      ),
+    ),
+  );
+});
+test("conta pode consultar somente sua própria autorização", async () => {
+  const db = admin();
+  await assertSucceeds(getDoc(doc(db, "admins", "admin-test")));
+  await assertFails(getDoc(doc(db, "admins", "inactive-test")));
+  await assertFails(getDocs(collection(db, "admins")));
+});
+test("ninguém promove a própria conta pelo navegador", async () => {
+  for (const uid of ["admin-test", "outsider"]) {
+    const db = env.authenticatedContext(uid).firestore();
+    await assertFails(setDoc(doc(db, "admins", uid), { active: true }));
+  }
+});
+test("admin salva e relê configuração com versão atômica", async () => {
+  const db = admin();
+  await assertSucceeds(persist(db));
+  await assertSucceeds(getDoc(doc(db, "settings", "company")));
+  await assertSucceeds(getDocs(collection(db, "settingsVersions")));
+});
+test("dia padrão de vencimento pode ficar em branco", async () => {
+  await assertSucceeds(persist(admin(), data()));
+});
+test("não grava configuração sem histórico", async () => {
+  await assertFails(setDoc(doc(admin(), "settings", "company"), data()));
+});
+test("não cria versão órfã", async () => {
+  await assertFails(
+    setDoc(
+      doc(admin(), "settingsVersions", "version-00000000000000001"),
+      data(),
+    ),
+  );
+});
+test("incrementa a revisão e mantém a versão anterior", async () => {
+  const db = admin();
+  await persist(db);
+  await assertSucceeds(persist(db, data(2, "version-00000000000000002")));
+  await assertSucceeds(
+    getDoc(doc(db, "settingsVersions", "version-00000000000000001")),
+  );
+});
+test("bloqueia versão repetida e revisão fora da sequência", async () => {
+  const db = admin();
+  await persist(db);
+  await assertFails(persist(db, data(3, "version-00000000000000003")));
+  await assertFails(persist(db, data(2)));
+});
+test("histórico não pode ser editado ou excluído", async () => {
+  const db = admin();
+  await persist(db);
+  await assertFails(
+    updateDoc(doc(db, "settingsVersions", "version-00000000000000001"), {
+      revision: 99,
+    }),
+  );
+  await assertFails(
+    deleteDoc(doc(db, "settingsVersions", "version-00000000000000001")),
+  );
+  await assertFails(deleteDoc(doc(db, "settings", "company")));
+});
+test("bloqueia identidade falsa, timestamp e propriedades extras", async () => {
+  await assertFails(persist(admin(), { ...data(), updatedBy: "outro" }));
+  await assertFails(persist(admin(), { ...data(), updatedAt: new Date(0) }));
+  await assertFails(persist(admin(), { ...data(), extra: true }));
+});
+test("bloqueia vencimento inválido, imagens inválidas e QR incompleto", async () => {
+  const p = data();
+  await assertFails(
+    persist(admin(), { ...p, profile: { ...p.profile, dueDay: 40 } }),
+  );
+  await assertFails(
+    persist(admin(), { ...p, logo: "https://example.com/logo.png" }),
+  );
+  await assertFails(
+    persist(admin(), { ...p, pixQr: "data:image/png;base64,AAAA" }),
+  );
+});
+test("revogação impede novas leituras e gravações", async () => {
+  const db = admin();
+  await persist(db);
+  await env.withSecurityRulesDisabled((ctx) =>
+    updateDoc(doc(ctx.firestore(), "admins", "admin-test"), { active: false }),
+  );
+  await assertFails(getDoc(doc(db, "settings", "company")));
+  await assertFails(persist(db, data(2, "version-00000000000000002")));
+});
+test("admin cadastra cliente com versão atômica e não pode excluir", async () => {
+  const db = admin();
+  await assertSucceeds(persistClient(db));
+  await assertSucceeds(getDoc(doc(db, "clients", "client-000000000000000001")));
+  await assertFails(deleteDoc(doc(db, "clients", "client-000000000000000001")));
+});
+test("cliente não pode ser salvo sem versão ou com campos financeiros inválidos", async () => {
+  const db = admin();
+  await assertFails(
+    setDoc(doc(db, "clients", "client-000000000000000001"), clientData()),
+  );
+  const invalid = clientData();
+  invalid.discountPercent = 101;
+  await assertFails(persistClient(db, invalid));
+});
+test("admin registra consumo único e pode excluir cadastro e versão", async () => {
+  const db = admin();
+  await persistClient(db);
+  await assertSucceeds(persistConsumption(db));
+  await assertSucceeds(getDocs(collection(db, "consumptions")));
+  await assertSucceeds(
+    deleteDoc(doc(db, "consumptions", "client-000000000000000001--2026-10")),
+  );
+  await assertSucceeds(
+    deleteDoc(doc(db, "consumptionVersions", "usage-version-0000000001")),
+  );
+});
+test("consumo exige cliente existente e valores coerentes", async () => {
+  const db = admin();
+  await assertFails(persistConsumption(db));
+  await persistClient(db);
+  const invalid = consumptionData();
+  invalid.currentReading = 90;
+  await assertFails(persistConsumption(db, invalid));
+});
+test("consumo exige a data da próxima leitura", async () => {
+  const db = admin();
+  await persistClient(db);
+  const invalid = consumptionData();
+  invalid.nextReadDate = "";
+  await assertFails(persistConsumption(db, invalid));
+});
+test("admin salva fórmulas com versão atômica", async () => {
+  const db = admin();
+  await assertSucceeds(persistBilling(db));
+  await assertFails(
+    persistBilling(db, billingData(3, "billing-version-000000003")),
+  );
+  const invalid = billingData(2, "billing-version-000000002");
+  invalid.icmsRate = 101;
+  await assertFails(persistBilling(db, invalid));
+});
+test("fatura exige origens válidas, permite cancelamento auditado e exclusão pelo admin", async () => {
+  const db = admin();
+  await persist(db);
+  await persistClient(db);
+  await persistConsumption(db);
+  const invoice = invoiceData();
+  await assertSucceeds(setDoc(doc(db, "invoices", invoice.id), invoice));
+  await assertFails(updateDoc(doc(db, "invoices", invoice.id), { total: 1 }));
+  await assertSucceeds(
+    updateDoc(doc(db, "invoices", invoice.id), {
+      status: "cancelled",
+      cancelledAt: serverTimestamp(),
+      cancelledBy: "admin-test",
+      cancellationReason: "Emissão incorreta",
+    }),
+  );
+  await assertSucceeds(deleteDoc(doc(db, "invoices", invoice.id)));
+});
+test("fatura não pode apontar para consumo inexistente", async () => {
+  const db = admin();
+  await persist(db);
+  await persistClient(db);
+  await assertFails(
+    setDoc(doc(db, "invoices", "invoice-000000000000000001"), invoiceData()),
+  );
+});
+test("pagamento parcial pode ser criado, cancelado ou excluído pelo admin", async () => {
+  const db = admin();
+  await persist(db);
+  await persistClient(db);
+  await persistConsumption(db);
+  const invoice = invoiceData();
+  await setDoc(doc(db, "invoices", invoice.id), invoice);
+  const payment = paymentData();
+  await assertSucceeds(setDoc(doc(db, "payments", payment.id), payment));
+  await assertFails(updateDoc(doc(db, "payments", payment.id), { amount: 9 }));
+  await assertSucceeds(
+    updateDoc(doc(db, "payments", payment.id), {
+      status: "cancelled",
+      cancelledAt: serverTimestamp(),
+      cancelledBy: "admin-test",
+      cancellationReason: "Lançamento duplicado",
+    }),
+  );
+  await assertSucceeds(deleteDoc(doc(db, "payments", payment.id)));
+});
+test("fatura cancelada não aceita novo pagamento", async () => {
+  const db = admin();
+  await persist(db);
+  await persistClient(db);
+  await persistConsumption(db);
+  const invoice = invoiceData();
+  await setDoc(doc(db, "invoices", invoice.id), invoice);
+  await updateDoc(doc(db, "invoices", invoice.id), {
+    status: "cancelled",
+    cancelledAt: serverTimestamp(),
+    cancelledBy: "admin-test",
+    cancellationReason: "Emissão incorreta",
+  });
+  await assertFails(
+    setDoc(doc(db, "payments", paymentData().id), paymentData()),
+  );
+});
+test("compartilhamento só registra confirmação vinculada e pode ser excluído pelo admin", async () => {
+  const db = admin();
+  await persist(db);
+  await persistClient(db);
+  await persistConsumption(db);
+  const invoice = invoiceData();
+  await setDoc(doc(db, "invoices", invoice.id), invoice);
+  const share = {
+    schemaVersion: 1,
+    id: "share-00000000000000000001",
+    invoiceId: invoice.id,
+    clientId: invoice.clientId,
+    channel: "whatsapp",
+    sharedAt: serverTimestamp(),
+    sharedBy: "admin-test",
+  };
+  await assertSucceeds(setDoc(doc(db, "shares", share.id), share));
+  await assertFails(
+    updateDoc(doc(db, "shares", share.id), { channel: "email" }),
+  );
+  await assertSucceeds(deleteDoc(doc(db, "shares", share.id)));
+});
+test("visitante não acessa clientes ou consumos e coleções futuras seguem fechadas", async () => {
+  const visitor = env.unauthenticatedContext().firestore();
+  await assertFails(getDocs(collection(visitor, "clients")));
+  await assertFails(getDocs(collection(visitor, "consumptions")));
+  await assertFails(setDoc(doc(admin(), "payments", "teste"), { value: 1 }));
+});
+test("admin libera, bloqueia e redefine o vínculo de acesso do cliente", async () => {
+  const db = admin();
+  await persistClient(db);
+  const account = customerAccountData();
+  await assertSucceeds(
+    setDoc(doc(db, "customerAccounts", account.uid), account),
+  );
+  await assertSucceeds(
+    setDoc(doc(db, "portalSettings", "company"), portalSettingsData()),
+  );
+  await assertSucceeds(
+    updateDoc(doc(db, "customerAccounts", account.uid), {
+      active: false,
+      updatedAt: serverTimestamp(),
+      updatedBy: "admin-test",
+    }),
+  );
+  await assertSucceeds(deleteDoc(doc(db, "customerAccounts", account.uid)));
+});
+test("cliente acessa somente cadastro, consumos, faturas e pagamentos vinculados", async () => {
+  const adb = admin();
+  await persist(adb);
+  await persistClient(adb);
+  await persistConsumption(adb);
+  const invoice = invoiceData();
+  await setDoc(doc(adb, "invoices", invoice.id), invoice);
+  await setDoc(doc(adb, "payments", paymentData().id), paymentData());
+  await setDoc(
+    doc(adb, "customerAccounts", "customer-test"),
+    customerAccountData(),
+  );
+  await setDoc(doc(adb, "portalSettings", "company"), portalSettingsData());
+  const db = env
+    .authenticatedContext("customer-test", { email: "cliente@teste.com" })
+    .firestore();
+  await assertSucceeds(getDoc(doc(db, "customerAccounts", "customer-test")));
+  await assertSucceeds(getDoc(doc(db, "clients", "client-000000000000000001")));
+  await assertSucceeds(
+    getDocs(
+      query(
+        collection(db, "consumptions"),
+        where("clientId", "==", "client-000000000000000001"),
+      ),
+    ),
+  );
+  await assertSucceeds(
+    getDocs(
+      query(
+        collection(db, "invoices"),
+        where("clientId", "==", "client-000000000000000001"),
+      ),
+    ),
+  );
+  await assertSucceeds(
+    getDocs(
+      query(
+        collection(db, "payments"),
+        where("clientId", "==", "client-000000000000000001"),
+      ),
+    ),
+  );
+  await assertSucceeds(getDoc(doc(db, "portalSettings", "company")));
+  await assertFails(getDocs(collection(db, "clients")));
+  await assertFails(setDoc(doc(db, "clients", "outro"), clientData()));
+  await assertFails(
+    updateDoc(doc(db, "customerAccounts", "customer-test"), { active: false }),
+  );
+  await assertFails(deleteDoc(doc(db, "customerAccounts", "customer-test")));
+});
+test("cliente bloqueado perde o acesso aos dados imediatamente", async () => {
+  await env.withSecurityRulesDisabled(async (ctx) => {
+    const db = ctx.firestore();
+    await setDoc(doc(db, "clients", "client-000000000000000001"), clientData());
+    await setDoc(doc(db, "customerAccounts", "customer-test"), {
+      ...customerAccountData(),
+      active: false,
+    });
+    await setDoc(doc(db, "portalSettings", "company"), portalSettingsData());
+  });
+  const db = env.authenticatedContext("customer-test").firestore();
+  await assertSucceeds(getDoc(doc(db, "customerAccounts", "customer-test")));
+  await assertFails(getDoc(doc(db, "clients", "client-000000000000000001")));
+  await assertFails(getDoc(doc(db, "portalSettings", "company")));
+});
