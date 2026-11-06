@@ -74,8 +74,8 @@ test("novo DANF3E extrai operações, sinais, consumo total e IP-CIP", () => {
     unit: "kWh",
     quantity: 302.6992,
     aneelTariff: 1.35157,
-    taxedTariff: 0.918954,
-    value: 278.17,
+    taxedTariff: 1.71196356,
+    value: 518.21,
     selected: true,
   });
   const bandeira = result.operations.find((item) =>
@@ -94,7 +94,7 @@ test("novo DANF3E extrai operações, sinais, consumo total e IP-CIP", () => {
   assert.equal(
     result.operations.find((item) => item.description.startsWith("Demanda"))
       .value,
-    208.76,
+    515.06,
   );
   assert.equal(result.measuredConsumption, 5159.3546);
   assert.equal(result.summary.publicLighting, 20.42);
@@ -113,8 +113,10 @@ test("novo DANF3E extrai operações, sinais, consumo total e IP-CIP", () => {
   assert.equal(
     draft.operations.find((item) => item.description.startsWith("Demanda"))
       .value,
-    208.76,
+    515.06,
   );
+  assert.equal(draft.demandCharge, 208.76);
+  assert.equal(draft.sourceInvoiceTotal, 1572.85);
 });
 
 test("associa cliente somente quando a instalação tem correspondência única", () => {

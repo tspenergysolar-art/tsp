@@ -644,11 +644,6 @@ async function renderConsumption(
     ...(editing || {}),
     ...(draft || {}),
   };
-  const savedDemand = value.operations?.find((item) =>
-    /^Demanda \[kW\]/i.test(item.description),
-  )?.value;
-  if (Number.isFinite(Number(savedDemand)))
-    value.demandCharge = Number(savedDemand);
   container.innerHTML = `<div class="page-heading"><div><span class="eyebrow">CADASTRO MENSAL</span><h1>Cadastro mensal</h1><p>Leia a conta CPFL, confira as operações e salve o consumo do mês.</p></div></div>${clients.length ? `${cpflReaderMarkup()}<section class="form-section"><div class="section-heading"><span class="section-number">02</span><div><h2>Cliente, consumo e cobrança</h2><p>O valor completo da conta CPFL é a base do cálculo. A seleção abaixo controla somente o que aparece na fatura TSP.</p></div></div>${draft ? '<div class="notice success">Os dados selecionados na leitura foram preenchidos. Nada foi salvo ainda.</div>' : ""}<form id="consumption-form"><input name="previousReading" type="hidden" value="0"><input name="currentReading" type="hidden" value="0"><input name="multiplier" type="hidden" value="1"><input name="injectedEnergy" type="hidden" value="0"><input name="saleTariff" type="hidden" value="0"><input name="tusdConsumption" type="hidden" value="0"><input name="teConsumption" type="hidden" value="0"><input name="solarCreditDiscount" type="hidden" value="0"><input name="tariffFlag" type="hidden" value="0"><input name="taxes" type="hidden" value="0"><input name="otherCharges" type="hidden" value="0"><div class="form-grid"><label class="field">Cliente<select name="clientId" id="consumption-client">${clients.map((c) => `<option value="${e(c.id)}" ${c.id === selected?.id ? "selected" : ""}>${e(c.name)} · ${e(c.installationNumber)}</option>`).join("")}</select></label>${input("reference", "Mês de referência", value.reference, "month", "required")}${input("previousReadDate", "Data da leitura anterior", value.previousReadDate, "date", "required")}${input("currentReadDate", "Data da leitura atual", value.currentReadDate, "date", "required")}${input("nextReadDate", "Data da próxima leitura", value.nextReadDate, "date", "required")}${input("measuredConsumption", "Consumo total para o histórico (kWh)", value.measuredConsumption, "number", 'min="0" step="0.0001" required')}${input("sourceInvoiceTotal", "Total completo da conta CPFL (R$)", value.sourceInvoiceTotal, "number", 'min="0" step="0.01" required')}<div class="field sale-tariff-field"><span>Tarifa TSP do Consumo Ponta <b>R$/kWh</b></span><input name="saleTariff" aria-label="Tarifa TSP" type="number" min="0" step="0.000001" value="${e(value.saleTariff)}" required><small id="sale-tariff-help">Substitui somente o valor original do Consumo Ponta na base completa.</small><button type="button" class="button sale-tariff-save" id="save-default-tariff" data-online>${icon("check")} Salvar como tarifa padrão</button></div><div class="field sale-tariff-field"><span>Demanda fixa rateada <b>R$</b></span><input name="demandCharge" aria-label="Demanda fixa" type="number" min="0" step="0.01" value="${e(value.demandCharge)}" required><small id="demand-charge-help">Substitui somente a Demanda original na base completa.</small><button type="button" class="button sale-tariff-save" id="save-default-demand" data-online>${icon("check")} Salvar como demanda padrão</button></div><div class="field sale-tariff-field"><span>Desconto TSP Solar <b>R$</b></span><input name="solarCreditDiscount" aria-label="Desconto TSP Solar" type="number" min="0" step="0.01" value="${e(value.solarCreditDiscount)}" required><small id="solar-discount-help">Valor em reais abatido depois dos ajustes.</small><button type="button" class="button sale-tariff-save" id="save-default-discount" data-online>${icon("check")} Salvar como desconto padrão</button></div>${input("publicLighting", "Custeio IP-CIP (R$)", value.publicLighting, "number", 'min="0" step="0.01" required')}${input("dueDate", "Data de vencimento", value.dueDate, "date", "required")}${area("notes", "Observações", value.notes)}</div><section class="monthly-operations"><div class="history-title"><div><h2>Operações exibidas na fatura</h2><p class="muted">Marcar ou desmarcar uma operação muda apenas a apresentação. Todas as operações da CPFL permanecem consideradas na base completa.</p></div><button type="button" class="button secondary small-button" id="add-operation">Adicionar operação</button></div>${operationRowsMarkup(value.operations)}</section><div id="calculation-info" class="calculation-box"></div>${editing ? '<div class="notice warning">Você está corrigindo um lançamento existente. Confira os valores antes de salvar.</div>' : ""}<div id="consumption-error" class="notice error" hidden></div><div class="form-actions">${editing ? '<button type="button" id="cancel-edit-consumption" class="button secondary">Cancelar correção</button>' : ""}<button type="submit" class="button primary" data-online>${icon("check")} ${editing ? "Salvar correção" : "Salvar lançamento"}</button></div></form></section><section class="history-section"><div><h2>Lançamentos de ${e(selected.name)}</h2><p class="muted">Consumo, base CPFL, desconto e IP-CIP registrados em cada mês.</p></div>${records.length ? `<div class="table-wrap"><table><thead><tr><th>Referência</th><th>Consumo</th><th>Base CPFL</th><th>IP-CIP</th><th>Operações visíveis</th><th></th></tr></thead><tbody>${records.map((c) => `<tr><td><strong>${month(c.reference)}</strong><small>${date(c.currentReadDate)}</small></td><td>${number(c.measuredConsumption)} kWh</td><td>${c.sourceInvoiceTotal > 0 ? money(c.sourceInvoiceTotal) : "—"}</td><td>${money(c.publicLighting)}</td><td>${Array.isArray(c.operations) ? c.operations.filter((item) => item.selected).length : 0} selecionadas</td><td><div class="row-actions"><button class="text-button" data-consumption="${e(c.id)}">Corrigir</button><button class="text-button danger-text" data-delete-consumption="${e(c.id)}">Excluir</button></div></td></tr>`).join("")}</tbody></table></div>` : '<div class="empty-state compact"><p>Nenhum consumo lançado para este cliente.</p></div>'}</section>` : '<div class="empty-state"><h2>Cadastre um cliente ativo primeiro</h2><p>O lançamento mensal depende de uma unidade consumidora ativa.</p></div>'}`;
   if (!selected) return;
   bindCpflReader(container, clients, selected, records, billing);
@@ -694,17 +689,6 @@ async function renderConsumption(
     );
   };
   bindOperationControls();
-  const syncDemand = () => {
-    const demandRow = [
-      ...container.querySelectorAll("[data-operation-row]"),
-    ].find((row) =>
-      /^Demanda \[kW\]/i.test(
-        row.querySelector("[data-operation-description]")?.value || "",
-      ),
-    );
-    const demandValue = demandRow?.querySelector("[data-operation-value]");
-    if (demandValue) demandValue.value = form.elements.demandCharge.value;
-  };
   [
     "saleTariff",
     "solarCreditDiscount",
@@ -713,11 +697,7 @@ async function renderConsumption(
   ].forEach((name) =>
     form.elements[name].addEventListener("input", calc),
   );
-  form.elements.demandCharge.addEventListener("input", () => {
-    syncDemand();
-    calc();
-  });
-  syncDemand();
+  form.elements.demandCharge.addEventListener("input", calc);
   calc();
   container.querySelector("#add-operation").onclick = () => {
     container.querySelector("#operation-empty")?.remove();

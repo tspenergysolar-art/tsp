@@ -243,16 +243,8 @@ export function extractCpflOperationsFromPages(rawPages) {
       unit,
       quantity: finalQuantity,
       aneelTariff: Number.isFinite(aneelTariff) ? aneelTariff : 0,
-      taxedTariff: isConsumption
-        ? DEFAULT_TSP_TARIFF
-        : Number.isFinite(taxedTariff)
-          ? taxedTariff
-          : 0,
-      value: isConsumption
-        ? Number((finalQuantity * DEFAULT_TSP_TARIFF).toFixed(2))
-        : isDemand
-          ? DEFAULT_DEMAND_SHARE
-          : value,
+      taxedTariff: Number.isFinite(taxedTariff) ? taxedTariff : 0,
+      value,
       selected,
     });
   }
