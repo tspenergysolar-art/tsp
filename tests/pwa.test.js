@@ -10,6 +10,17 @@ test('manifesto permite instalação e contém ícones para Android e iPhone',as
   assert.ok(manifest.icons.some(icon=>icon.sizes==='512x512'&&icon.purpose==='maskable'));
 });
 
+test('iPhone recebe instruções de instalação pelo Safari',async()=>{
+  const pwa=await readFile(new URL('../src/pwa.js',import.meta.url),'utf8'),app=await readFile(new URL('../src/app.js',import.meta.url),'utf8');
+  assert.match(pwa,/navigator\.platform==='MacIntel'/);
+  assert.match(pwa,/showIosInstallGuide/);
+  assert.match(pwa,/Adicionar à Tela de Início/);
+  assert.match(pwa,/Editar Ações/);
+  assert.match(pwa,/support\.apple\.com\/guide\/iphone\/iphea86e5236\/ios/);
+  assert.match(pwa,/platform:'ios'/);
+  assert.match(app,/id="login-install"/);
+});
+
 test('service worker guarda somente arquivos locais e não intercepta Firebase',async()=>{
   const source=await readFile(new URL('../public/sw.js',import.meta.url),'utf8');
   assert.match(source,/url\.origin!==self\.location\.origin/);assert.match(source,/request\.method!==['"]GET['"]/);assert.match(source,/configuracao\.html/);assert.match(source,/portal\.html/);assert.match(source,/cache\.put\(request,copy\)/);
