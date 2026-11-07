@@ -62,7 +62,7 @@ test('página de pagamento oferece abertura do banco e PIX Copia e Cola',async()
 });
 
 test('emissão em lote também gera e baixa os PDFs',async()=>{
-  const source=await readFile(new URL('../src/invoices.js',import.meta.url),'utf8');
+  const source=await readFile(new URL('../src/invoices.js',import.meta.url),'utf8'),styles=await readFile(new URL('../src/styles.css',import.meta.url),'utf8');
   assert.match(source,/const createAndDownload=async invoice/);
   assert.match(source,/await createAndDownload\(invoice\)/);
   assert.match(source,/Gerando \$\{completed\+1\} de \$\{chosen\.length\}/);
@@ -71,6 +71,10 @@ test('emissão em lote também gera e baixa os PDFs',async()=>{
   assert.match(source,/Ver fatura gerada/);
   assert.match(source,/\[data-select\]:disabled/);
   assert.match(source,/aparecem somente na lista abaixo/);
+  assert.match(source,/document\.createElement\('dialog'\)/);
+  assert.match(source,/dialog\.showModal\(\)/);
+  assert.match(styles,/\.invoice-detail-dialog/);
+  assert.match(styles,/margin:auto 0 0/);
 });
 
 test('menu móvel prioriza resumo, cadastro mensal, faturas e mais',async()=>{
