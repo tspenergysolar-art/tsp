@@ -22,6 +22,8 @@ import {
   financialRows,
   financialSummary,
   financeStatusLabels,
+  latePaymentQuote,
+  buildLateInvoiceVersion,
 } from "./finance.js";
 import { createInvoicePdf, downloadPdf } from "./invoice-pdf.js";
 import { escapeHtml as e, icon, toast, brand } from "./ui.js";
@@ -255,6 +257,26 @@ function renderPortal(user, client, consumptions, invoices, payments, company) {
         }
       }),
   );
+  document.querySelectorAll("[data-late-invoice]").forEach(
+    (button) =>
+      (button.onclick = async () => {
+        const row = rows.find((x) => x.id === button.dataset.lateInvoice);
+        if (!row || !company) return;
+        button.disabled = true;
+        button.textContent = "Calculando multa e juros…";
+        try {
+          const updated = buildLateInvoiceVersion(row, today());
+          const bytes = await createInvoicePdf(updated, company);
+          downloadPdf(bytes, `fatura-atualizada-${row.reference}-${row.id.slice(0, 8)}.pdf`);
+          toast(`Fatura atualizada para hoje: ${money(updated.total)}.`);
+        } catch (ex) {
+          toast(ex.message || "Não foi possível atualizar a fatura.");
+        } finally {
+          button.disabled = false;
+          button.textContent = "Atualizar fatura vencida";
+        }
+      }),
+  );
   const navLinks = [...document.querySelectorAll(".portal-nav a")];
   navLinks.forEach(
     (link) =>
@@ -276,7 +298,8 @@ function invoiceCard(row, payments) {
         0,
     ),
   );
-  return `<article class="portal-invoice-card"><div class="portal-invoice-main"><div class="portal-month"><span>${month(row.reference)}</span><small>Vence ${date(row.dueDate)}</small></div><div><span>Valor da fatura</span><strong>${money(row.total)}</strong></div><div><span>Valor pago</span><strong>${money(row.received)}</strong></div><div><span>Saldo</span><strong>${money(row.balance)}</strong></div><span class="status-badge ${e(row.status)}">${e(financeStatusLabels[row.status])}</span></div><details><summary>Ver detalhes</summary><div class="portal-invoice-detail"><div><span>Emissão</span><strong>${date(row.issueDate)}</strong></div><div><span>Consumo</span><strong>${number(row.consumption?.measuredConsumption)} kWh</strong></div><div><span>Desconto TSP Solar</span><strong>${money(discount)}</strong></div><div><span>Identificador</span><strong>${e(row.id.slice(0, 8).toUpperCase())}</strong></div></div>${records.length ? `<div class="portal-payments"><strong>Pagamentos registrados</strong>${records.map((item) => `<p>${date(item.paymentDate)} · ${money(item.amount)} · ${e(item.method)}</p>`).join("")}</div>` : ""}<button class="button secondary small-button" data-invoice="${e(row.id)}" ${row.status === "cancelled" ? "disabled" : ""}>Baixar fatura em PDF</button></details></article>`;
+  const late=row.status==='overdue'?latePaymentQuote(row,today()):null;
+  return `<article class="portal-invoice-card"><div class="portal-invoice-main"><div class="portal-month"><span>${month(row.reference)}</span><small>Vence ${date(row.dueDate)}</small></div><div><span>Valor da fatura</span><strong>${money(row.total)}</strong></div><div><span>Valor pago</span><strong>${money(row.received)}</strong></div><div><span>Saldo</span><strong>${money(row.balance)}</strong></div><span class="status-badge ${e(row.status)}">${e(financeStatusLabels[row.status])}</span></div><details ${late?.eligible?'open':''}><summary>Ver detalhes</summary><div class="portal-invoice-detail"><div><span>Emissão</span><strong>${date(row.issueDate)}</strong></div><div><span>Consumo</span><strong>${number(row.consumption?.measuredConsumption)} kWh</strong></div><div><span>Desconto TSP Solar</span><strong>${money(discount)}</strong></div><div><span>Identificador</span><strong>${e(row.id.slice(0, 8).toUpperCase())}</strong></div></div>${records.length ? `<div class="portal-payments"><strong>Pagamentos registrados</strong>${records.map((item) => `<p>${date(item.paymentDate)} · ${money(item.amount)} · ${e(item.method)}</p>`).join("")}</div>` : ""}${late?.eligible?`<div class="portal-late-quote"><strong>Atualização para pagamento hoje</strong><span>Saldo vencido ${money(late.base)}</span><span>Multa de 2% ${money(late.fine)}</span><span>Juros de ${late.daysOverdue} dia${late.daysOverdue===1?'':'s'} ${money(late.interest)}</span><b>Total atualizado ${money(late.total)}</b></div><button class="button primary small-button" data-late-invoice="${e(row.id)}">Atualizar fatura vencida</button>`:''}<button class="button secondary small-button" data-invoice="${e(row.id)}" ${row.status === "cancelled" ? "disabled" : ""}>Baixar fatura original em PDF</button></details></article>`;
 }
 
 let booting = true;

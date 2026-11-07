@@ -5,6 +5,38 @@ const isoTime=value=>{
   return match?Date.UTC(Number(match[1]),Number(match[2])-1,Number(match[3])):null;
 };
 
+export const LATE_FINE_RATE=.02;
+export const LATE_DAILY_RATE=.0033;
+
+export function latePaymentQuote(invoice,asOf){
+  const dueTime=isoTime(invoice?.dueDate),asOfTime=isoTime(asOf),balance=amount(invoice?.balance??invoice?.total);
+  const daysOverdue=dueTime!==null&&asOfTime!==null&&dueTime<asOfTime?Math.floor((asOfTime-dueTime)/86400000):0;
+  if(daysOverdue<1||balance<=.009)return {eligible:false,asOf,daysOverdue:0,base:balance,fine:0,interest:0,total:balance};
+  const fine=amount(balance*LATE_FINE_RATE),interest=amount(balance*LATE_DAILY_RATE*daysOverdue);
+  return {eligible:true,asOf,daysOverdue,base:balance,fine,interest,total:amount(balance+fine+interest)};
+}
+
+export function buildLateInvoiceVersion(invoice,asOf){
+  const quote=latePaymentQuote(invoice,asOf);
+  if(!quote.eligible)throw new Error('Esta fatura ainda não está vencida ou não possui saldo pendente.');
+  const originalId=invoice.originalInvoiceId||invoice.id;
+  return {...invoice,
+    id:`${originalId}-ATUALIZADA-${asOf}`,
+    originalInvoiceId:originalId,
+    issueDate:asOf,
+    dueDate:asOf,
+    total:quote.total,
+    status:'issued',
+    notes:`Via atualizada em ${asOf.split('-').reverse().join('/')}. Fatura original vencida em ${String(invoice.dueDate).split('-').reverse().join('/')}. Encargos calculados para pagamento nesta data.`,
+    items:[
+      {code:'SALDO_VENCIDO',description:`Saldo vencido da fatura ${String(originalId).replace(/[^A-Za-z0-9]/g,'').slice(-8).toUpperCase()}`,value:quote.base},
+      {code:'MULTA_ATRASO',description:'Multa por atraso (2%)',value:quote.fine},
+      {code:'JUROS_ATRASO',description:`Juros de mora (0,33% ao dia x ${quote.daysOverdue} dia${quote.daysOverdue===1?'':'s'})`,value:quote.interest}
+    ],
+    lateAdjustment:{...quote,originalInvoiceId:originalId,originalDueDate:invoice.dueDate,originalTotal:amount(invoice.total),received:amount(invoice.received||0),fineRate:LATE_FINE_RATE,dailyRate:LATE_DAILY_RATE}
+  };
+}
+
 export const activePaid=(payments,invoiceId)=>amount(payments
   .filter(payment=>payment.invoiceId===invoiceId&&payment.status==='active')
   .reduce((sum,payment)=>sum+Number(payment.amount||0),0));

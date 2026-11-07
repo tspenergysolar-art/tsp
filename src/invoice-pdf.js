@@ -234,7 +234,8 @@ export async function createInvoicePdf(invoice, company) {
     { width } = page.getSize(),
     p = company.profile,
     margin = 25,
-    content = width - 50;
+    content = width - 50,
+    late = invoice.lateAdjustment || null;
   page.drawRectangle({ x: 0, y: 752, width, height: 90, color: green });
   page.drawRectangle({ x: 0, y: 752, width: 10, height: 90, color: lime });
   let logo = null;
@@ -282,7 +283,12 @@ export async function createInvoicePdf(invoice, company) {
   text(
     page,
     regular,
-    `Fatura ${
+    late ? `VIA ATUALIZADA - Fatura ${
+      clean(late.originalInvoiceId || invoice.id)
+        .replace(/[^A-Za-z0-9]/g, "")
+        .slice(-8)
+        .toUpperCase() || "-"
+    }` : `Fatura ${
       clean(invoice.id)
         .replace(/[^A-Za-z0-9]/g, "")
         .slice(-8)
@@ -474,7 +480,7 @@ export async function createInvoicePdf(invoice, company) {
         color: border,
         thickness: 0.25,
       });
-    const summary = ["DESCONTO_TSP", "SUBTOTAL", "IP_CIP"].includes(item.code),
+    const summary = ["DESCONTO_TSP", "SUBTOTAL", "IP_CIP", "SALDO_VENCIDO", "MULTA_ATRASO", "JUROS_ATRASO"].includes(item.code),
       operation = !summary;
     text(
       page,
@@ -483,7 +489,7 @@ export async function createInvoicePdf(invoice, company) {
       starts[0] + 7,
       y + layout.baselineOffset,
       layout.textSize,
-      item.code === "DESCONTO_TSP" ? red : summary ? green : ink,
+      ["DESCONTO_TSP", "MULTA_ATRASO", "JUROS_ATRASO"].includes(item.code) ? red : summary ? green : ink,
     );
     if (operation) {
       center(
@@ -675,18 +681,21 @@ export async function createInvoicePdf(invoice, company) {
     addLink(page, pdf, paymentUrl, 385, 140, 175, 27);
   }
   box(page, margin, 45, content, 75, yellow, rgb(0.9, 0.78, 0.3));
-  text(page, bold, "ATRASO NO PAGAMENTO", 35, 106, 7, red);
-  const lateNotice =
-    "Após o vencimento: multa de 2% sobre o valor vencido e juros de 0,033% ao dia de atraso. Solicite à TSP Energy Solar o valor atualizado antes de pagar.";
-  wrap(lateNotice, bold, 8, content - 20)
-    .slice(0, 2)
+  text(page, bold, late ? "ENCARGOS DE ATRASO APLICADOS" : "ATRASO NO PAGAMENTO", 35, 106, 7, red);
+  const lateNotice = late
+    ? `Saldo vencido ${brl(late.base)} + multa de 2% ${brl(late.fine)} + juros de 0,33% ao dia por ${late.daysOverdue} dia${late.daysOverdue===1?'':'s'} ${brl(late.interest)}. Total atualizado ${brl(late.total)}.`
+    : "Após o vencimento: multa de 2% sobre o valor vencido e juros de 0,33% ao dia de atraso. Gere uma via atualizada antes de pagar.";
+  wrap(lateNotice, bold, late ? 7.2 : 8, content - 20)
+    .slice(0, 3)
     .forEach((line, index) =>
-      text(page, bold, line, 35, 89 - index * 11, 8, ink),
+      text(page, bold, line, 35, 89 - index * 10, late ? 7.2 : 8, ink),
     );
   text(
     page,
     regular,
-    "O QR Code e o botão acima contêm o valor original desta fatura.",
+    late
+      ? `Via válida para pagamento em ${date(invoice.dueDate)}. Se pagar depois, gere outra atualização.`
+      : "O QR Code e o botão acima contêm o valor original desta fatura.",
     35,
     57,
     6.5,
