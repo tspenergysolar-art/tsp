@@ -56,4 +56,17 @@ test('emissão em lote também gera e baixa os PDFs',async()=>{
   assert.match(source,/await createAndDownload\(invoice\)/);
   assert.match(source,/Gerando \$\{completed\+1\} de \$\{chosen\.length\}/);
   assert.match(source,/PDF gerado e baixado com sucesso/);
+  assert.match(source,/Nenhuma fatura aguardando emissão/);
+  assert.match(source,/Ver fatura gerada/);
+  assert.match(source,/\[data-select\]:disabled/);
+  assert.match(source,/aparecem somente na lista abaixo/);
+});
+
+test('menu móvel prioriza resumo, cadastro mensal, faturas e mais',async()=>{
+  const source=await readFile(new URL('../src/app.js',import.meta.url),'utf8');
+  assert.match(source,/mobileMonthly\.dataset\.nav='consumption'/);
+  assert.match(source,/mobileMonthly\.href='#consumption'/);
+  assert.match(source,/mobileMonthly\.innerHTML=`\$\{icon\('bolt'\)\}<span>Mensal<\/span>`/);
+  assert.match(source,/data-nav="invoices"[^>]*href="#invoices"[\s\S]*?<span>Faturas<\/span>/);
+  assert.match(source,/id="mobile-more"[\s\S]*?<span>Mais<\/span>/);
 });
