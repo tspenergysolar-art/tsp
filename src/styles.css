@@ -76,3 +76,22 @@ button:disabled{cursor:not-allowed}.invoice-complete-note{margin-left:auto;color
 #client-form .sale-tariff-field{display:none}.sale-tariff-field{align-self:stretch}.sale-tariff-field input{font-weight:800}.sale-tariff-field small{min-height:32px}
 @media(max-width:700px){.customer-access-grid{align-items:stretch;flex-direction:column}.customer-access-actions{display:grid;justify-content:stretch}.customer-access-actions .button{width:100%}.portal-link{align-items:flex-start;flex-direction:column}}
 @media(max-width:760px){.operation-editor-row{grid-template-columns:28px 1fr 1fr}.operation-editor-row .operation-description{grid-column:2/-1}.operation-editor-row .operation-unit,.operation-editor-row .operation-quantity,.operation-editor-row .operation-tariff,.operation-editor-row .operation-value{grid-column:auto}.operation-editor-row .danger-text{grid-column:2/-1;justify-self:start}.cpfl-apply{grid-template-columns:1fr}.cpfl-operation-value{width:105px}}
+
+/* Versão no menu e tabelas legíveis no celular */
+.sidebar-version{padding:0 12px 12px;text-align:right;color:#8da595;font-size:9px;letter-spacing:.04em}
+@media(max-width:700px){
+  .table-wrap:has(>.mobile-card-table){max-width:none;overflow:visible;border:0;background:transparent}
+  .mobile-card-table{display:block;width:100%;min-width:0!important;background:transparent}
+  .mobile-card-table thead{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+  .mobile-card-table tbody{display:grid;gap:12px;width:100%}
+  .mobile-card-table tr{position:relative;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));width:100%;overflow:hidden;border:1px solid var(--border);border-radius:12px;background:#fff;box-shadow:0 5px 16px #173e3008}
+  .mobile-card-table td{display:block;min-width:0;padding:11px 12px;border:0;border-bottom:1px solid #edf1ed;white-space:normal;overflow-wrap:anywhere}
+  .mobile-card-table td:nth-last-child(-n+2):not(.mobile-card-action){border-bottom:0}
+  .mobile-card-table td::before{content:attr(data-label);display:block;margin-bottom:5px;color:#789078;font-size:8px;font-weight:700;letter-spacing:.06em;text-transform:uppercase}
+  .mobile-card-table td[data-label=""]::before{display:none}
+  .mobile-card-table td.mobile-card-action{grid-column:1/-1;display:flex;align-items:center;gap:8px;padding:8px;border-top:1px solid #e4ebe5;border-bottom:0;background:#f8faf7}
+  .mobile-card-table td.mobile-card-action::before{display:none}
+  .mobile-card-table td.mobile-card-action .text-button,.mobile-card-table td.mobile-card-action>.button{width:100%;min-height:40px;text-align:center;justify-content:center}
+  .mobile-card-table td.mobile-card-select{position:absolute;z-index:2;top:9px;right:9px;width:auto;padding:5px;border:0;background:transparent}
+  .mobile-card-table td.mobile-card-select+td{padding-right:42px}
+}

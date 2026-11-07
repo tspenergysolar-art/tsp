@@ -17,11 +17,11 @@ const root=document.querySelector('#app');
 const baseUrl=import.meta.env.BASE_URL;
 const appVersion=__APP_VERSION__;
 registerPwa();
-let company=null, user=null, authorized=false, dirty=false, busy=false, stopAdmin, generation=0;
+let company=null, user=null, authorized=false, dirty=false, busy=false, stopAdmin, responsiveObserver, generation=0;
 let images={logo:''};
 const $=selector=>root.querySelector(selector);
 const emulatorLabel=isEmulator?'<div class="environment">AMBIENTE LOCAL DE TESTES · sem dados de produção</div>':'';
-function clearData() {company=null;images={logo:''};authorized=false;dirty=false;busy=false;}
+function clearData() {responsiveObserver?.disconnect();responsiveObserver=null;company=null;images={logo:''};authorized=false;dirty=false;busy=false;}
 function alertIn(id,message) {const el=$(id);if(el){el.textContent=message;el.hidden=!message;}}
 function canLeave() {return !dirty || confirm('Há alterações não salvas. Deseja sair desta tela e descartá-las?');}
 function setMobileMenu(open=false) {
@@ -37,6 +37,17 @@ function network() {
   const offline=!navigator.onLine;
   root.querySelectorAll('[data-online]').forEach(el=>el.disabled=offline||busy);
   const banner=$('#network');if(banner)banner.hidden=!offline;
+}
+function decorateResponsiveTables(scope){
+  scope?.querySelectorAll('.table-wrap table:not(.preview-table)').forEach(table=>{
+    table.classList.add('mobile-card-table');
+    const labels=[...table.querySelectorAll('thead th')].map(th=>th.textContent.trim());
+    table.querySelectorAll('tbody tr').forEach(row=>[...row.children].forEach((cell,index)=>{
+      cell.dataset.label=labels[index]||'';
+      cell.classList.toggle('mobile-card-action',Boolean(cell.querySelector('button,.button,.text-button')));
+      cell.classList.toggle('mobile-card-select',Boolean(cell.querySelector('input[type="checkbox"]')));
+    }));
+  });
 }
 window.addEventListener('offline',network);window.addEventListener('online',network);
 window.addEventListener('beforeunload',event=>{if(dirty||busy){event.preventDefault();event.returnValue='';}});
@@ -100,6 +111,9 @@ onAuthStateChanged(auth,authorize);
 function renderShell() {
   if(!authorized)return;
   root.innerHTML=`${emulatorLabel}<div class="app-layout"><aside class="sidebar" id="sidebar"><div class="sidebar-head"><a class="brand shell-brand" href="#overview">${brand(true,company.logo)}</a><button id="sidebar-close" class="icon-button sidebar-close" type="button" aria-label="Fechar menu">×</button></div><div class="workspace-label">PAINEL ADMINISTRATIVO</div><nav aria-label="Menu principal"><a data-nav="overview" href="#overview">${icon('grid')} Visão geral</a><a data-nav="settings" href="#settings">${icon('settings')} Configurações</a><a href="${baseUrl}configuracao.html" target="_blank" rel="noopener">${icon('file')} Manual de uso</a></nav><div class="sidebar-bottom"><div class="solar-note">${icon('sun')}<span>Energia solar.<br><strong>Gestão consciente.</strong></span></div><div class="user-block"><span class="avatar">${e((user.email||'A').charAt(0).toUpperCase())}</span><div><strong>Administrador</strong><small>${e(user.email)}</small></div><button id="logout" class="icon-button" aria-label="Sair da conta" title="Sair da conta">${icon('out')}</button></div></div></aside><button class="sidebar-backdrop" id="sidebar-backdrop" type="button" aria-label="Fechar menu"></button><div class="workspace"><header class="topbar"><button class="icon-button mobile-menu" id="menu-toggle" aria-label="Abrir menu" aria-expanded="false" aria-controls="sidebar">${icon('menu')}</button><a class="brand mobile-top-brand shell-brand" data-nav="overview" href="#overview">${brand(true,company.logo)}</a><div class="breadcrumb">Área administrativa <span>/</span> <strong id="breadcrumb-page">Visão geral</strong></div><button class="mobile-install-button" id="quick-install" type="button">Instalar app</button><button class="mobile-account" id="mobile-account" type="button" aria-label="Abrir conta e menu" aria-expanded="false" aria-controls="sidebar">${e((user.email||'A').charAt(0).toUpperCase())}</button><span class="secure-label">${icon('shield')} Acesso autorizado</span></header><div id="network" class="notice warning" hidden>Sem conexão. Você pode revisar o formulário, mas precisa reconectar para salvar.</div><main id="page" tabindex="-1"></main><footer class="workspace-footer">TSP ENERGY SOLAR <span>Versão ${e(appVersion)}</span></footer></div><nav class="mobile-bottom-nav" aria-label="Navegação principal"><a data-nav="overview" href="#overview">${icon('grid')}<span>Resumo</span></a><a data-nav="clients" href="#clients">${icon('users')}<span>Clientes</span></a><a data-nav="invoices" href="#invoices">${icon('file')}<span>Faturas</span></a><button id="mobile-more" type="button" aria-label="Abrir mais opções" aria-expanded="false" aria-controls="sidebar">${icon('menu')}<span>Mais</span></button></nav></div>`;
+  root.querySelector('.user-block')?.insertAdjacentHTML('beforebegin',`<div class="sidebar-version">Versão ${e(appVersion)}</div>`);
+  const workspaceFooter=root.querySelector('.workspace-footer');if(workspaceFooter)workspaceFooter.textContent='TSP ENERGY SOLAR';
+  const pageHost=$('#page');decorateResponsiveTables(pageHost);responsiveObserver?.disconnect();responsiveObserver=new MutationObserver(()=>decorateResponsiveTables(pageHost));responsiveObserver.observe(pageHost,{childList:true,subtree:true});
   const mobileMonthly=root.querySelector('.mobile-bottom-nav [data-nav="clients"]');
   mobileMonthly.dataset.nav='consumption';mobileMonthly.href='#consumption';mobileMonthly.innerHTML=`${icon('bolt')}<span>Mensal</span>`;
   root.querySelector('[data-nav="settings"]').insertAdjacentHTML('beforebegin',`<a data-nav="clients" href="#clients">${icon('users')} Clientes</a><a data-nav="consumption" href="#consumption">${icon('bolt')} Cadastro mensal</a><a data-nav="invoices" href="#invoices">${icon('file')} Cadastro de faturas</a><a data-nav="import" href="#import">${icon('upload')} Importação de dados</a><a data-nav="payments" href="#payments">${icon('check')} Contas a receber</a><a data-nav="install" href="#install">${icon('sun')} Instalar aplicativo</a>`);

@@ -74,10 +74,15 @@ test('emissão em lote também gera e baixa os PDFs',async()=>{
 });
 
 test('menu móvel prioriza resumo, cadastro mensal, faturas e mais',async()=>{
-  const source=await readFile(new URL('../src/app.js',import.meta.url),'utf8');
+  const source=await readFile(new URL('../src/app.js',import.meta.url),'utf8'),styles=await readFile(new URL('../src/styles.css',import.meta.url),'utf8');
   assert.match(source,/mobileMonthly\.dataset\.nav='consumption'/);
   assert.match(source,/mobileMonthly\.href='#consumption'/);
   assert.match(source,/mobileMonthly\.innerHTML=`\$\{icon\('bolt'\)\}<span>Mensal<\/span>`/);
   assert.match(source,/data-nav="invoices"[^>]*href="#invoices"[\s\S]*?<span>Faturas<\/span>/);
   assert.match(source,/id="mobile-more"[\s\S]*?<span>Mais<\/span>/);
+  assert.match(source,/class="sidebar-version">Versão/);
+  assert.match(source,/decorateResponsiveTables/);
+  assert.match(source,/cell\.dataset\.label=labels\[index\]/);
+  assert.match(styles,/\.mobile-card-table tr\{[^}]*grid-template-columns:repeat\(2,minmax\(0,1fr\)\)/);
+  assert.match(styles,/\.mobile-card-table td\.mobile-card-action\{grid-column:1\/-1/);
 });
